@@ -234,6 +234,5 @@ def add_target(df, period=15, goalreturn=0.8):
                 "Bear" if r < -goalreturn else
                 "Range"
     )
-    
-    
+       
     return df
