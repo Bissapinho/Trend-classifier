@@ -189,3 +189,48 @@ def add_rsi(df, period=14):
     df[f"RSI{period}"] = 100 - (100 / (1 + rs))
 
     return df
+
+
+#Targeting
+
+def add_target(df, period=15, goalreturn=0.8):
+    """
+    Add a trend classification target based on future cumulative returns.
+
+    The market regime is defined using the cumulative return over a future
+    time horizon. Three regimes are considered:
+    - Bull: future cumulative return above a positive threshold
+    - Bear: future cumulative return below a negative threshold
+    - Range: returns between both thresholds
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        DataFrame containing at least a 'Close' column.
+    period : int, optional
+        Forward-looking horizon (in days) over which returns are accumulated.
+    goalreturn : float, optional
+        Return threshold defining bullish and bearish regimes (in decimal form).
+
+    Returns
+    -------
+    pandas.DataFrame
+        Copy of the input DataFrame with a 'Trend' column added.
+    """
+
+    def mapping():
+        
+        if r < -goalreturn:
+            return 'Bear'
+        elif r > goalreturn:
+            return 'Bull'
+        else:
+            return 'Range'
+
+
+    returns = df["Close"].pct_change()
+    future_cumulated_returns = (1 + returns).rolling(period).apply(lambda x: np.prod(x) - 1, raw=True).shift(-period)
+
+    df['Trend'] = future_cumulated_returns.map(mapping)
+    
+    return df
