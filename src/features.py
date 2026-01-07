@@ -80,8 +80,7 @@ def add_volatility(df, window=20):
     ----------
     df : pandas.DataFrame
         DataFrame containing at least a 'Close' column.
-    window : int, optional
-        Rolling window size (in days), by default 20.
+    window : Rolling window size (in days), by default st to 20.
 
     Returns
     -------
