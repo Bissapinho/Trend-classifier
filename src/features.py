@@ -218,19 +218,22 @@ def add_target(df, period=15, goalreturn=0.8):
         Copy of the input DataFrame with a 'Trend' column added.
     """
 
-    def mapping():
-        
-        if r < -goalreturn:
-            return 'Bear'
-        elif r > goalreturn:
-            return 'Bull'
-        else:
-            return 'Range'
-
-
     returns = df["Close"].pct_change()
-    future_cumulated_returns = (1 + returns).rolling(period).apply(lambda x: np.prod(x) - 1, raw=True).shift(-period)
 
-    df['Trend'] = future_cumulated_returns.map(mapping)
+    future_cumulated_returns = (
+        (1 + returns)
+        .rolling(period)
+        .apply(lambda x: np.prod(x) - 1, raw=True)
+        .shift(-period)
+    )
+
+
+
+    df["Trend"] = future_cumulated_returns.map(
+        lambda r: "Bull" if r > goalreturn else
+                "Bear" if r < -goalreturn else
+                "Range"
+    )
+    
     
     return df
