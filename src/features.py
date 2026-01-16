@@ -193,7 +193,7 @@ def add_rsi(df: pd.DataFrame, period=14):
 
 #Targeting
 
-def add_target(df: pd.DataFrame, period=15, goalreturn=0.008):
+def add_target(df: pd.DataFrame, period=15, goalreturn=(0.03, 0.015)):
     """
     Add a trend classification target based on future cumulative returns.
 
@@ -232,8 +232,8 @@ def add_target(df: pd.DataFrame, period=15, goalreturn=0.008):
 
 
     df["Trend"] = future_cumulated_returns.map(
-        lambda r: "Bull" if r > goalreturn else
-                "Bear" if r < -goalreturn else
+        lambda r: "Bull" if r > float(goalreturn[0]) else
+                "Bear" if r < float(-goalreturn[1]) else
                 "Range"
     )
        
@@ -242,7 +242,7 @@ def add_target(df: pd.DataFrame, period=15, goalreturn=0.008):
 
 #For practcal this func adds everything to the df
 
-def add__all_features(df: pd.DataFrame):
+def add_all_features(df: pd.DataFrame):
     """
     Add all engineered feature columns to a price DataFrame.
 
@@ -279,7 +279,7 @@ def add__all_features(df: pd.DataFrame):
     """
 
     df = df.copy()
-    
+
     df = add_MA(df)
     df = add_EMA(df)
     df = add_returns(df)
