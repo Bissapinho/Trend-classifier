@@ -197,25 +197,32 @@ def add_target(df: pd.DataFrame, period=15, goalreturn=(0.03, 0.015)):
     """
     Add a trend classification target based on future cumulative returns.
 
-    The market regime is defined using the cumulative return over a future
-    time horizon. Three regimes are considered:
-    - Bull: future cumulative return above a positive threshold
-    - Bear: future cumulative return below a negative threshold
-    - Range: returns between both thresholds
+    The market regime is defined using the cumulative return over a forward-looking
+    time horizon. Three market regimes are considered:
+    - Bull: future cumulative return above a positive upper threshold
+    - Bear: future cumulative return below a negative lower threshold
+    - Range: future cumulative returns between both thresholds
+
+    Asymmetric thresholds are allowed in order to account for the structural
+    asymmetry of financial markets, where downward movements tend to be faster
+    and less persistent than upward trends.
 
     Parameters
     ----------
     df : pandas.DataFrame
-        DataFrame containing at least a 'Close' column.
+        DataFrame containing at least a 'Close' price column.
     period : int, optional
-        Forward-looking horizon (in days) over which returns are accumulated.
-    goalreturn : float, optional
-        Return threshold defining bullish and bearish regimes (in decimal form).
+        Forward-looking horizon (in trading days) over which returns are accumulated.
+    goalreturn : tuple 
+        Tuple defining the bullish and bearish return thresholds in decimal form
+        as (bull_threshold, bear_threshold). The bearish threshold is applied
+        as a negative value.
 
     Returns
     -------
     pandas.DataFrame
-        Copy of the input DataFrame with a 'Trend' column added.
+        Copy of the input DataFrame with an additional 'Trend' column representing
+        the classified market regime.
     """
     
     df = df.copy()
