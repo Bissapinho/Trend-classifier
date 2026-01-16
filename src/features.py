@@ -3,7 +3,7 @@ import numpy as np
 
 
 
-def add_MA(df):
+def add_MA(df: pd.DataFrame):
     """Add simple moving averages (MA10 and MA50) based on daily closing prices.
 
     Parameters
@@ -25,7 +25,7 @@ def add_MA(df):
     return df
 
 
-def add_EMA(df, period=20):
+def add_EMA(df: pd.DataFrame, period=20):
     """Add Exp moving average based on daily closing prices.
 
     Parameters
@@ -47,7 +47,7 @@ def add_EMA(df, period=20):
     return df
 
 
-def add_returns(df):
+def add_returns(df: pd.DataFrame):
     """
     Add daily returns and log-returns based on closing prices.
 
@@ -69,7 +69,7 @@ def add_returns(df):
     return df
 
 
-def add_volatility(df, window=20):
+def add_volatility(df: pd.DataFrame, window=20):
     """
     Add rolling volatility computed from daily returns.
 
@@ -97,7 +97,7 @@ def add_volatility(df, window=20):
 
     return df
 
-def add_distances(df, madist=50, emadist=20):
+def add_distances(df: pd.DataFrame, madist=50, emadist=20):
     """
     Add normalized distance to moving average and exponential moving average.
 
@@ -128,7 +128,7 @@ def add_distances(df, madist=50, emadist=20):
     return df
 
 
-def add_cumulated_returns(df, period=5):
+def add_cumulated_returns(df: pd.DataFrame, period=5):
     """
     Add cumulative returns over a given time period.
 
@@ -156,7 +156,7 @@ def add_cumulated_returns(df, period=5):
     return df
 
 
-def add_rsi(df, period=14):
+def add_rsi(df: pd.DataFrame, period=14):
     """
     Add Relative Strength Index (RSI) indicator.
 
@@ -193,7 +193,7 @@ def add_rsi(df, period=14):
 
 #Targeting
 
-def add_target(df, period=15, goalreturn=0.008):
+def add_target(df: pd.DataFrame, period=15, goalreturn=0.008):
     """
     Add a trend classification target based on future cumulative returns.
 
@@ -217,6 +217,8 @@ def add_target(df, period=15, goalreturn=0.008):
     pandas.DataFrame
         Copy of the input DataFrame with a 'Trend' column added.
     """
+    
+    df = df.copy()
 
     returns = df["Close"].pct_change()
 
@@ -236,3 +238,10 @@ def add_target(df, period=15, goalreturn=0.008):
     )
        
     return df
+
+
+#For practcal this func adds everything to the df
+
+def add_all(df):
+
+    df = df.copy()
