@@ -242,6 +242,51 @@ def add_target(df: pd.DataFrame, period=15, goalreturn=0.008):
 
 #For practcal this func adds everything to the df
 
-def add_all(df):
+def add__all_features(df: pd.DataFrame):
+    """
+    Add all engineered feature columns to a price DataFrame.
+
+    This function applies a sequence of feature engineering transformations
+    commonly used in financial time series analysis. All features are computed
+    using only current and past information, making the resulting DataFrame
+    safe for supervised machine learning without look-ahead bias.
+
+    The added features include:
+    - Simple moving averages
+    - Exponential moving averages
+    - Daily returns and log-returns
+    - Rolling volatility
+    - Normalized distances to moving averages
+    - Cumulative past returns
+    - Momentum indicator (RSI)
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Input DataFrame containing at least a 'Close' price column.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Copy of the input DataFrame enriched with all engineered feature columns.
+
+    Notes
+    -----
+    This function does not create any target variable and should be used
+    prior to target construction and train/test splitting. All NaN values
+    introduced by rolling computations should be handled downstream
+    (e.g., by dropping initial rows).
+    """
 
     df = df.copy()
+    
+    df = add_MA(df)
+    df = add_EMA(df)
+    df = add_returns(df)
+    df = add_volatility(df)
+    df = add_distances(df)
+    df = add_cumulated_returns(df)
+    df = add_rsi(df)
+
+    return df
+
