@@ -193,7 +193,7 @@ def add_rsi(df, period=14):
 
 #Targeting
 
-def add_target(df, period=15, goalreturn=0.8):
+def add_target(df, period=15, goalreturn=0.008):
     """
     Add a trend classification target based on future cumulative returns.
 
