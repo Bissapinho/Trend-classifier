@@ -193,19 +193,23 @@ def add_rsi(df: pd.DataFrame, period=14):
 
 #Targeting
 
-def add_target(df: pd.DataFrame, period=15, goalreturn=(0.03, 0.015)):
+def add_target(df: pd.DataFrame, period=60, goalreturn=0.05, logreturn=False):
     """
-    Add a trend classification target based on future cumulative returns.
+    Add a binary trend classification target based on future cumulative returns.
 
-    The market regime is defined using the cumulative return over a forward-looking
-    time horizon. Three market regimes are considered:
-    - Bull: future cumulative return above a positive upper threshold
-    - Bear: future cumulative return below a negative lower threshold
-    - Range: future cumulative returns between both thresholds
+    The target is defined using the cumulative return over a forward-looking
+    time horizon. Each observation is labeled according to whether the future
+    return over the specified period exceeds a fixed positive threshold.
 
-    Asymmetric thresholds are allowed in order to account for the structural
-    asymmetry of financial markets, where downward movements tend to be faster
-    and less persistent than upward trends.
+    This formulation is deliberately research-oriented: it defines a structural
+    bullish regime rather than an actionable trading signal. The goal is to study
+    relationships between past price-derived features and future market regimes,
+    not to optimize profitability.
+
+    Two return aggregation methods are supported:
+    - Simple returns: cumulative return is computed as the product of (1 + r_t)
+    - Log-returns: cumulative return is computed as the exponential of the sum
+    of log-returns
 
     Parameters
     ----------
@@ -213,35 +217,46 @@ def add_target(df: pd.DataFrame, period=15, goalreturn=(0.03, 0.015)):
         DataFrame containing at least a 'Close' price column.
     period : int, optional
         Forward-looking horizon (in trading days) over which returns are accumulated.
-    goalreturn : tuple 
-        Tuple defining the bullish and bearish return thresholds in decimal form
-        as (bull_threshold, bear_threshold). The bearish threshold is applied
-        as a negative value.
+    goalreturn : float, optional
+        Positive return threshold used to define the Bullish regime.
+    logreturn : bool, optional
+        If True, cumulative returns are computed using log-returns.
+        If False, simple returns are used.
 
     Returns
     -------
     pandas.DataFrame
-        Copy of the input DataFrame with an additional 'Trend' column representing
-        the classified market regime.
+        Copy of the input DataFrame with an additional 'Trend' column containing
+        binary labels: 'Bullish' or 'Non-Bullish'.
     """
+
     
     df = df.copy()
 
-    returns = df["Close"].pct_change()
 
-    future_cumulated_returns = (
-        (1 + returns)
-        .rolling(period)
-        .apply(lambda x: np.prod(x) - 1, raw=True)
-        .shift(-period)
-    )
+    if logreturn:
+        logreturns = np.log(1+ df["Close"].pct_change())
 
+        future_cumulated_returns = (logreturns
+                                    .rolling(period)
+                                    .sum()
+                                    .shift(-period)
+                                    .apply(np.exp) - 1
+                                )
+                                
+    else:
+        returns = df["Close"].pct_change()
+        future_cumulated_returns = (
+            (1 + returns)
+            .rolling(period)
+            .apply(lambda x: np.prod(x) - 1, raw=True)
+            .shift(-period)
+        )
 
 
     df["Trend"] = future_cumulated_returns.map(
-        lambda r: "Bull" if r > float(goalreturn[0]) else
-                "Bear" if r < float(-goalreturn[1]) else
-                "Range"
+        lambda r: "Bullish" if r > float(goalreturn) else
+                "Non-Bullish"
     )
        
     return df

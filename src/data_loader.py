@@ -3,7 +3,7 @@ import yfinance as yf
 
 def load_data(
     ticker='SPY',
-    start='2010-01-01',
+    start='2000-01-01',
     end='2024-12-31',
     interval='1d'
 ):
