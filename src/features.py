@@ -246,6 +246,55 @@ def add_target(df: pd.DataFrame, period=60, goalreturn=0.05, logreturn=False):
     return df
 
 
+def add_target_ma_cross(df: pd.DataFrame, short_window=10, long_window=50):
+    """
+    Add binary trend target based on moving average crossover.
+    
+    The target is defined as:
+    - Bullish: short-term MA > long-term MA (upward momentum)
+    - Non-Bullish: short-term MA ≤ long-term MA (downward or flat momentum)
+    
+    This approach defines market regimes based on the relationship between
+    recent price trends (short MA) and longer-term trends (long MA), following
+    the well-established Golden Cross / Death Cross methodology in technical analysis.
+    
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        DataFrame containing at least a 'Close' price column.
+    short_window : int, optional
+        Window size for the short-term moving average. Default is 10 days.
+    long_window : int, optional
+        Window size for the long-term moving average. Default is 50 days.
+    
+    Returns
+    -------
+    pandas.DataFrame
+        Copy of the input DataFrame with an additional 'Trend' column containing
+        binary labels based on MA crossover.
+    
+    Notes
+    -----
+    Common parameter choices in technical analysis:
+    - (10, 50): Short-term regime detection
+    - (50, 200): Classic Golden/Death Cross (long-term regimes)
+    - (20, 60): Medium-term regimes
+    
+    The MA crossover approach naturally produces fewer regime transitions than
+    threshold-based methods, as crossovers occur only when two trends reverse
+    their relative positions.
+    """
+    df = df.copy()
+    
+    # Calculate moving averages
+    ma_short = df['Close'].rolling(window=short_window).mean()
+    ma_long = df['Close'].rolling(window=long_window).mean()
+    
+    # Define trend based on MA relationship
+    df['Trend'] = (ma_short > ma_long).map({True: 'Bullish', False: 'Non-Bullish'})
+    
+    return df
+
 #For practcal this func adds everything to the df
 
 def add_all_features(df: pd.DataFrame):
