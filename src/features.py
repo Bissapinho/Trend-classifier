@@ -233,32 +233,16 @@ def add_target(df: pd.DataFrame, period=60, goalreturn=0.05, logreturn=False):
     
     df = df.copy()
 
-
     if logreturn:
-        logreturns = np.log(1+ df["Close"].pct_change())
+        future_cumulated_returns = (np.log(df['Close'].shift(-period) / df["Close"]))
 
-        future_cumulated_returns = (logreturns
-                                    .rolling(period)
-                                    .sum()
-                                    .shift(-period)
-                                    .apply(np.exp) - 1
-                                )
-                                
-    else:
-        returns = df["Close"].pct_change()
-        future_cumulated_returns = (
-            (1 + returns)
-            .rolling(period)
-            .apply(lambda x: np.prod(x) - 1, raw=True)
-            .shift(-period)
-        )
-
-
+    else:    
+        future_cumulated_returns = (df["Close"].shift(-period) / df["Close"]) - 1
+    
     df["Trend"] = future_cumulated_returns.map(
-        lambda r: "Bullish" if r > float(goalreturn) else
-                "Non-Bullish"
+        lambda r: "Bullish" if r > float(goalreturn) else "Non-Bullish"
     )
-       
+    
     return df
 
 
