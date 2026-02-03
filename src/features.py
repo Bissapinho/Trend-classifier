@@ -227,23 +227,14 @@ def add_target(df: pd.DataFrame, period=15, goalreturn=(0.03, 0.015)):
     
     df = df.copy()
 
-    returns = df["Close"].pct_change()
-
-    future_cumulated_returns = (
-        (1 + returns)
-        .rolling(period)
-        .apply(lambda x: np.prod(x) - 1, raw=True)
-        .shift(-period)
-    )
-
-
-
+    future_cumulated_returns = (df["Close"].shift(-period) / df["Close"]) - 1
+    
     df["Trend"] = future_cumulated_returns.map(
         lambda r: "Bull" if r > float(goalreturn[0]) else
                 "Bear" if r < float(-goalreturn[1]) else
                 "Range"
     )
-       
+    
     return df
 
 
