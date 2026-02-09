@@ -190,11 +190,100 @@ def add_rsi(df: pd.DataFrame, period=14):
 
     return df
 
+def add_atr(df: pd.DataFrame, period=14):
+    """
+    Add Average True Range (ATR) indicator.
 
+    ATR measures market volatility by calculating the average
+    of true ranges over a given time period. The true range
+    is the maximum of: (High - Low), |High - Previous Close|,
+    and |Low - Previous Close|.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        DataFrame containing OCHL data.
+    period : int, optional
+        ATR lookback period, by default 14.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Copy of the input DataFrame with ATR added.
+    """
+
+    df1 = df.copy()
+    
+    high_low = df1['High'] - df1['Low']
+    high_close = abs(df1['High'] - df1['Close'].shift(1))
+    low_close = abs(df1['Low'] - df1['Close'].shift(1))
+
+    true_range = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
+    df1['ATR'] = true_range.rolling(window=period).mean()
+    
+    return df1
+
+
+def add_volume_roc(df: pd.DataFrame, period=14):
+    """
+    Add Volume Rate of Change (ROC) indicator.
+
+    Volume ROC measures the percentage change in trading volume
+    over a given time period, indcating shifts in market participation.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        DataFrame Volume column
+    period : int, optional
+        ROC lookback period, by default 14.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Copy of the input DataFrame with Volume_ROC added.
+    """
+    df1 = df.copy()
+    
+    df1['Volume_ROC'] = df1['Volume'].pct_change(periods=period) * 100
+    
+    return df1
+
+
+def add_stochastic_oscillator(df: pd.DataFrame, period=14, smooth_k=3):
+    """
+    Add Stochastic Oscillator (%K only).
+    
+    Measures where the current close price sits relative to 
+    the high-low range over a given period (0-100%).
+    
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        DataFrame containing OCHL data
+    period : int, optional
+        Lookback period for min/max, by default 14.
+    smooth_k : int, optional
+        Smoothing period for %K, by default 3.
+    
+    Returns
+    -------
+    pandas.DataFrame
+        Copy of the input DataFrame with Stoch_K added.
+    """
+    df1 = df.copy()
+    
+    low_min = df1['Low'].rolling(window=period).min()
+    high_max = df1['High'].rolling(window=period).max()
+    
+    stoch_k = ((df1['Close'] - low_min) / (high_max - low_min)) * 100
+    df1['Stoch_K'] = stoch_k.rolling(window=smooth_k).mean()
+    
+    return df1
 
 
 #Targeting
-
+#Old target
 def add_target(df: pd.DataFrame, period=60, goalreturn=0.05, logreturn=False):
     """
     Add a binary trend classification target based on future cumulative returns.
@@ -247,7 +336,7 @@ def add_target(df: pd.DataFrame, period=60, goalreturn=0.05, logreturn=False):
     
     return df
 
-
+#New target
 def add_target_ma_cross(df: pd.DataFrame, short_window=50, long_window=200):
     """
     Add binary trend target based on moving average crossover.
@@ -337,13 +426,14 @@ def add_all_features(df: pd.DataFrame):
 
     df = df.copy()
 
-    df = add_MA(df)
-    df = add_EMA(df)
     df = add_returns(df)
     df = add_volatility(df)
-    df = add_distances(df)
     df = add_cumulated_returns(df)
     df = add_rsi(df)
+    df = add_stochastic_oscillator(df)
+    df = add_volume_roc(df)
+    df = add_atr(df)
+
 
     return df
 
