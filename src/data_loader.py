@@ -6,7 +6,7 @@ def load_data(
     start='2000-01-01',
     end='2024-12-31',
     interval='1d'
-):
+    ):
     try:
         tick = yf.Ticker(ticker)
         df = tick.history(start=start, end=end, interval=interval)

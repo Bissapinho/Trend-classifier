@@ -191,6 +191,8 @@ def add_rsi(df: pd.DataFrame, period=14):
     return df
 
 
+
+
 #Targeting
 
 def add_target(df: pd.DataFrame, period=60, goalreturn=0.05, logreturn=False):
@@ -246,7 +248,7 @@ def add_target(df: pd.DataFrame, period=60, goalreturn=0.05, logreturn=False):
     return df
 
 
-def add_target_ma_cross(df: pd.DataFrame, short_window=10, long_window=50):
+def add_target_ma_cross(df: pd.DataFrame, short_window=50, long_window=200):
     """
     Add binary trend target based on moving average crossover.
     
@@ -291,7 +293,7 @@ def add_target_ma_cross(df: pd.DataFrame, short_window=10, long_window=50):
     ma_long = df['Close'].rolling(window=long_window).mean()
     
     # Define trend based on MA relationship
-    df['Trend'] = (ma_short > ma_long).map({True: 'Bullish', False: 'Non-Bullish'})
+    df['Golden_Cross'] = (ma_short > ma_long).map({True: 'Bullish', False: 'Non-Bullish'})
     
     return df
 
