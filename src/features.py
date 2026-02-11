@@ -281,6 +281,16 @@ def add_stochastic_oscillator(df: pd.DataFrame, period=14, smooth_k=3):
     
     return df1
 
+def add_distances_GC(df: pd.DataFrame):
+    df1 = df.copy()
+
+    ma50 = df1['Close'].rolling(window=50).mean()
+    ma200 = df1['Close'].rolling(window=200).mean()
+
+    # Distance normalisée (en pourcentage)
+    df1['Distance_GC'] = (ma50 - ma200) / ma200
+    
+    return df1
 
 #Targeting
 #Old target
