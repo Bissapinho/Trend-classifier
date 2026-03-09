@@ -1,81 +1,67 @@
-# Golden Cross Transition Prediction for SPY
+# Golden Cross Transition Predictor
 
-## Overview
+A machine learning project that predicts Golden Cross and Death Cross transitions
+in equity ETFs (SPY, DIA, QQQ) up to 30 days in advance.
 
-This quantitative finance research project aims to develop a machine learning system capable of predicting Golden Cross transitions on SPY (S&P 500 ETF) with **20-30 days advance notice**. The objective is to determine whether classical technical indicators can provide actionable predictive signals for market regime changes.
+## Research Question
 
-## Background and Motivation
+Can technical indicators anticipate MA50/MA200 crossover transitions 30 days ahead?
 
-Market regime transitions (bullish to bearish and vice versa) are rare but critical events for portfolio management. The Golden Cross (MA50 > MA200) is a widely used indicator but has a downside: it confirms a change that has already occurred. This project explores whether we can anticipate these transitions before they happen.
+## Results
 
-### Project Evolution
+| Asset | Model | F1    |
+|-------|-------|-------|
+| SPY   | XGB   | 0.758 |
+| DIA   | XGB   | 0.700 |
+| QQQ   | XGB   | 0.807 |
+| **Mean** | **XGB** | **0.755** |
 
-1. **Initial phase**: Return-based threshold regime classification - Abandoned (excessive label instability)
-2. **Intermediate phase**: Golden Cross classification with contemporaneous indicators - Abandoned (no real predictive value)
-3. **Current phase**: 30-day advance transition prediction - Under validation
+## Project Structure
+
+```
+project/
+├── src/
+│   ├── data_loader.py             # yfinance data loader
+│   ├── features.py                # Feature engineering pipeline
+│   └── models.py                  # RFCModel and XGBModel classes
+├── notebooks/
+│   ├── 01_target_testing.ipynb    # Target definition & robustness tests
+│   └── 02_model_selection.ipynb   # HP tuning, model comparison, cross-asset validation
+└── README.md
+```
 
 ## Methodology
 
-### Target Definition
+**Target**: Binary label — does a Golden/Death Cross occur within the next 30 days?
 
-- **Target**: `transition_incoming` - binary (0/1)
-- **Confirmation mechanism**: At least 7 positive predictions within a rolling 10-day window
-- **Prediction horizon**: 30 days before actual transition
-- **Class distribution**: approximately 12% positive, 88% negative
+**Features** (12 total):
+- Price/return indicators: Return, Cumulated_Return_5d
+- Technical indicators: Volatility, RSI14, ATR, Volume_ROC, VIX_spike
+- MA-based indicators: Distance_GC, MA_velocity, MA50_slope,
+  Distance_normalized, MA_cross_momentum
 
-### Data
+**Model**: XGBoost classifier with `scale_pos_weight` to handle class imbalance (~10% positive labels)
 
-- **Primary asset**: SPY (2000-2024)
-- **Planned validation assets**: QQQ, DIA, IWM, EFA
-- **Number of identified transitions**: approximately 25 over 6,100 trading days
-- **Source**: yfinance
+**Validation**: Strict temporal split (75% train / 25% test), cross-asset generalization
+without retraining
 
-### Features
+## Setup
 
-Features **deliberately exclude** moving average-based indicators to prevent data leakage:
+```bash
+pip install -r requirements.txt
+```
 
-- Historical volatility
-- Returns (multiple time horizons)
-- RSI (Relative Strength Index)
-- ATR (Average True Range)
-- Volume ROC (Rate of Change)
-- Cumulative returns
-- Potentially: Stochastic oscillators
-
-### Validation
-
-- Strict **temporal split** (no k-fold) to avoid look-ahead bias
-- Robustness testing with Gaussian noise pertubation
-- Multi-asset validation (if results are promising on SPY)
-- Priority metric: **Precision** (false positives are costly)
+**Requirements**:
+- Python 3.9+
+- pandas, numpy
+- scikit-learn
+- xgboost
+- yfinance
+- matplotlib
 
 
-## Preliminary Results
+## Paper
 
-**To be completed after initial experimentation series**
+This project is the basis of an arXiv paper submitted to q-fin.ST and stat.ML. Still in progress.
 
-## Known Limitations
-
-1. Limited number of transitions (approximately 25) - High overfitting risk
-2. Strong assumption: past patterns repeat
-3. Exclusion of MA-based features - May miss important signals
-4. Non-stationarity of financial markets
-
-## Next Steps
-
-1. Implementation of confirmation system (7/10) - In progress
-2. Initial validation on SPY - In progress
-3. Testing different algorithms (RF, XGBoost, etc.) - Pending
-4. Important feature analysis - Pending
-5. Multi-asset validation - Pending
-6. arXiv paper preparation (if results are significant) - Pending
-
-## Methodological Notes
-
-This project explicitly accepts the possibility of a **negative result**. Demonstrating that classical technical indicators cannot predict Golden Cross transitions would be a valuable scientific contribution and would be rigorously documented for publication.
-
----
-
-**Version**: 1.0  
-**Last updated**: February 2026  
-**Status**: Research in progess
+*Independent Researcher — 2025*
