@@ -1,449 +1,107 @@
 import pandas as pd
 import numpy as np
+import yfinance as yf
 
 
-
-def add_MA(df: pd.DataFrame):
-    """Add simple moving averages (MA10 and MA50) based on daily closing prices.
-
-    Parameters
-    ----------
-    df : pandas.DataFrame
-        DataFrame containing at least a 'Close' column.
-
-    Returns
-    -------
-    pandas.DataFrame
-        Copy of the input DataFrame with MA10 and MA50 columns added.
-    """
-    
-    df = df.copy()
-
-    df['MA10'] = df['Close'].rolling(window=10).mean()
-    df['MA50'] = df['Close'].rolling(window=50).mean()
-
-    return df
-
-
-def add_EMA(df: pd.DataFrame, period=20):
-    """Add Exp moving average based on daily closing prices.
-
-    Parameters
-    ----------
-    df : pandas.DataFrame
-        DataFrame containing at least a 'Close' column.
-    
-    period : the span of the EMA, by default set to 20
-
-    Returns
-    -------
-    pandas.DataFrame
-        Copy of the input DataFrame with EMA column added.
-    """
-
-    df = df.copy()
-
-    df[f'EMA{period}'] = df['Close'].ewm(span=period).mean()
-    return df
+COLUMN_ORDER = [
+    'Return', 'Volatility', 'Cumulated_Return_5d', 'RSI14',
+    'Volume_ROC', 'ATR', 'VIX_spike', 'Distance_GC',
+    'MA_velocity', 'MA50_slope', 'Distance_normalized', 'MA_cross_momentum'
+]
 
 
 def add_returns(df: pd.DataFrame):
-    """
-    Add daily returns and log-returns based on closing prices.
-
-    Parameters
-    ----------
-    df : pandas.DataFrame
-        DataFrame containing at least a 'Close' column.
-
-    Returns
-    -------
-    pandas.DataFrame
-        Copy of the input DataFrame with 'Return' and 'Log Return' columns added.
-    """
     df = df.copy()
-
     df["Return"] = df["Close"].pct_change()
-    df["Log Return"] = np.log(1 + df["Return"])
-
     return df
 
 
 def add_volatility(df: pd.DataFrame, window=20):
-    """
-    Add rolling volatility computed from daily returns.
-
-    Volatility is defined as the rolling standard deviation of
-    daily returns over a given time window.
-
-    Parameters
-    ----------
-    df : pandas.DataFrame
-        DataFrame containing at least a 'Close' column.
-    window : Rolling window size (in days), by default st to 20.
-
-    Returns
-    -------
-    pandas.DataFrame
-        Copy of the input DataFrame with a 'Volatility' column added.
-    """
     df = df.copy()
-
-    # Compute daily returns locally
     returns = df["Close"].pct_change()
-
-    # Rolling volatility
     df["Volatility"] = returns.rolling(window=window).std()
-
-    return df
-
-def add_distances(df: pd.DataFrame, madist=50, emadist=20):
-    """
-    Add normalized distance to moving average and exponential moving average.
-
-    Distances are computed as (Close - MA) / MA and (Close - EMA) / EMA.
-
-    Parameters
-    ----------
-    df : pandas.DataFrame
-        DataFrame containing at least a 'Close' column.
-    madist : int, optional
-        Window size for the moving average, by default 50.
-    emadist : int, optional
-        Span for the exponential moving average, by default 20.
-
-    Returns
-    -------
-    pandas.DataFrame
-        Copy of the input DataFrame with distance features added.
-    """
-    df = df.copy()
-
-    ma = df["Close"].rolling(window=madist).mean()
-    ema = df["Close"].ewm(span=emadist).mean()
-
-    df[f"Distance_MA{madist}"] = (df["Close"] - ma) / ma
-    df[f"Distance_EMA{emadist}"] = (df["Close"] - ema) / ema
-
     return df
 
 
 def add_cumulated_returns(df: pd.DataFrame, period=5):
-    """
-    Add cumulative returns over a given time period.
-
-    Cumulative return is defined as the compounded return
-    over the last `period` days.
-
-    Parameters
-    ----------
-    df : pandas.DataFrame
-        DataFrame containing at least a 'Close' column.
-    period : int, optional
-        Number of days over which returns are accumulated, by default 5.
-
-    Returns
-    -------
-    pandas.DataFrame
-        Copy of the input DataFrame with cumulative returns added.
-    """
-
     df = df.copy()
-
     returns = df["Close"].pct_change()
     df[f"Cumulated_Return_{period}d"] = (1 + returns).rolling(period).apply(lambda x: np.prod(x) - 1, raw=True)
-    
     return df
 
 
 def add_rsi(df: pd.DataFrame, period=14):
-    """
-    Add Relative Strength Index (RSI) indicator.
-
-    RSI is computed using daily price changes and measures
-    momentum over a given time period.
-
-    Parameters
-    ----------
-    df : pandas.DataFrame
-        DataFrame containing at least a 'Close' column.
-    period : int, optional
-        RSI lookback period, by default 14.
-
-    Returns
-    -------
-    pandas.DataFrame
-        Copy of the input DataFrame with RSI added.
-    """
     df = df.copy()
-
     delta = df["Close"].diff()
-
     gain = delta.clip(lower=0)
     loss = -delta.clip(upper=0)
-
     avg_gain = gain.rolling(window=period).mean()
     avg_loss = loss.rolling(window=period).mean()
-
     rs = avg_gain / avg_loss
     df[f"RSI{period}"] = 100 - (100 / (1 + rs))
-
     return df
 
+
 def add_atr(df: pd.DataFrame, period=14):
-    """
-    Add Average True Range (ATR) indicator.
-
-    ATR measures market volatility by calculating the average
-    of true ranges over a given time period. The true range
-    is the maximum of: (High - Low), |High - Previous Close|,
-    and |Low - Previous Close|.
-
-    Parameters
-    ----------
-    df : pandas.DataFrame
-        DataFrame containing OCHL data.
-    period : int, optional
-        ATR lookback period, by default 14.
-
-    Returns
-    -------
-    pandas.DataFrame
-        Copy of the input DataFrame with ATR added.
-    """
-
     df1 = df.copy()
-    
     high_low = df1['High'] - df1['Low']
     high_close = abs(df1['High'] - df1['Close'].shift(1))
     low_close = abs(df1['Low'] - df1['Close'].shift(1))
-
     true_range = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
     df1['ATR'] = true_range.rolling(window=period).mean()
-    
     return df1
 
 
 def add_volume_roc(df: pd.DataFrame, period=14):
-    """
-    Add Volume Rate of Change (ROC) indicator.
-
-    Volume ROC measures the percentage change in trading volume
-    over a given time period, indcating shifts in market participation.
-
-    Parameters
-    ----------
-    df : pandas.DataFrame
-        DataFrame Volume column
-    period : int, optional
-        ROC lookback period, by default 14.
-
-    Returns
-    -------
-    pandas.DataFrame
-        Copy of the input DataFrame with Volume_ROC added.
-    """
     df1 = df.copy()
-    
     df1['Volume_ROC'] = df1['Volume'].pct_change(periods=period) * 100
-    
     return df1
 
 
-def add_stochastic_oscillator(df: pd.DataFrame, period=14, smooth_k=3):
-    """
-    Add Stochastic Oscillator (%K only).
-    
-    Measures where the current close price sits relative to 
-    the high-low range over a given period (0-100%).
-    
-    Parameters
-    ----------
-    df : pandas.DataFrame
-        DataFrame containing OCHL data
-    period : int, optional
-        Lookback period for min/max, by default 14.
-    smooth_k : int, optional
-        Smoothing period for %K, by default 3.
-    
-    Returns
-    -------
-    pandas.DataFrame
-        Copy of the input DataFrame with Stoch_K added.
-    """
-    df1 = df.copy()
-    
-    low_min = df1['Low'].rolling(window=period).min()
-    high_max = df1['High'].rolling(window=period).max()
-    
-    stoch_k = ((df1['Close'] - low_min) / (high_max - low_min)) * 100
-    df1['Stoch_K'] = stoch_k.rolling(window=smooth_k).mean()
-    
-    return df1
-
-def add_distances_GC(df: pd.DataFrame):
-    df1 = df.copy()
-
-    ma50 = df1['Close'].rolling(window=50).mean()
-    ma200 = df1['Close'].rolling(window=200).mean()
-
-    # Distance normalisée (en pourcentage)
-    df1['Distance_GC'] = (ma50 - ma200) / ma200
-    
-    return df1
-
-#Targeting
-#Old target
-def add_target(df: pd.DataFrame, period=60, goalreturn=0.05, logreturn=False):
-    """
-    Add a binary trend classification target based on future cumulative returns.
-
-    The target is defined using the cumulative return over a forward-looking
-    time horizon. Each observation is labeled according to whether the future
-    return over the specified period exceeds a fixed positive threshold.
-
-    This formulation is deliberately research-oriented: it defines a structural
-    bullish regime rather than an actionable trading signal. The goal is to study
-    relationships between past price-derived features and future market regimes,
-    not to optimize profitability.
-
-    Two return aggregation methods are supported:
-    - Simple returns: cumulative return is computed as the product of (1 + r_t)
-    - Log-returns: cumulative return is computed as the exponential of the sum
-    of log-returns
-
-    Parameters
-    ----------
-    df : pandas.DataFrame
-        DataFrame containing at least a 'Close' price column.
-    period : int, optional
-        Forward-looking horizon (in trading days) over which returns are accumulated.
-    goalreturn : float, optional
-        Positive return threshold used to define the Bullish regime.
-    logreturn : bool, optional
-        If True, cumulative returns are computed using log-returns.
-        If False, simple returns are used.
-
-    Returns
-    -------
-    pandas.DataFrame
-        Copy of the input DataFrame with an additional 'Trend' column containing
-        binary labels: 'Bullish' or 'Non-Bullish'.
-    """
-
-    
+def build_features(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
 
-    if logreturn:
-        future_cumulated_returns = (np.log(df['Close'].shift(-period) / df["Close"]))
-
-    else:    
-        future_cumulated_returns = (df["Close"].shift(-period) / df["Close"]) - 1
-    
-    df["Trend"] = future_cumulated_returns.map(
-        lambda r: "Bullish" if r > float(goalreturn) else "Non-Bullish"
-    )
-    
-    return df
-
-#New target
-def add_target_ma_cross(df: pd.DataFrame, short_window=50, long_window=200):
-    """
-    Add binary trend target based on moving average crossover.
-    
-    The target is defined as:
-    - Bullish: short-term MA > long-term MA (upward momentum)
-    - Non-Bullish: short-term MA ≤ long-term MA (downward or flat momentum)
-    
-    This approach defines market regimes based on the relationship between
-    recent price trends (short MA) and longer-term trends (long MA), following
-    the well-established Golden Cross / Death Cross methodology in technical analysis.
-    
-    Parameters
-    ----------
-    df : pandas.DataFrame
-        DataFrame containing at least a 'Close' price column.
-    short_window : int, optional
-        Window size for the short-term moving average. Default is 10 days.
-    long_window : int, optional
-        Window size for the long-term moving average. Default is 50 days.
-    
-    Returns
-    -------
-    pandas.DataFrame
-        Copy of the input DataFrame with an additional 'Trend' column containing
-        binary labels based on MA crossover.
-    
-    Notes
-    -----
-    Common parameter choices in technical analysis:
-    - (10, 50): Short-term regime detection
-    - (50, 200): Classic Golden/Death Cross (long-term regimes)
-    - (20, 60): Medium-term regimes
-    
-    The MA crossover approach naturally produces fewer regime transitions than
-    threshold-based methods, as crossovers occur only when two trends reverse
-    their relative positions.
-    """
-    df = df.copy()
-    
-    # Calculate moving averages
-    ma_short = df['Close'].rolling(window=short_window).mean()
-    ma_long = df['Close'].rolling(window=long_window).mean()
-    
-    # Define trend based on MA relationship
-    df['Golden_Cross'] = (ma_short > ma_long).map({True: 'Bullish', False: 'Non-Bullish'})
-    
-    return df
-
-#For practcal this func adds everything to the df
-
-def add_all_features(df: pd.DataFrame):
-    """
-    Add all engineered feature columns to a price DataFrame.
-
-    This function applies a sequence of feature engineering transformations
-    commonly used in financial time series analysis. All features are computed
-    using only current and past information, making the resulting DataFrame
-    safe for supervised machine learning without look-ahead bias.
-
-    The added features include:
-    - Simple moving averages
-    - Exponential moving averages
-    - Daily returns and log-returns
-    - Rolling volatility
-    - Normalized distances to moving averages
-    - Cumulative past returns
-    - Momentum indicator (RSI)
-
-    Parameters
-    ----------
-    df : pandas.DataFrame
-        Input DataFrame containing at least a 'Close' price column.
-
-    Returns
-    -------
-    pandas.DataFrame
-        Copy of the input DataFrame enriched with all engineered feature columns.
-
-    Notes
-    -----
-    This function does not create any target variable and should be used
-    prior to target construction and train/test splitting. All NaN values
-    introduced by rolling computations should be handled downstream
-    (e.g., by dropping initial rows).
-    """
-
-    df = df.copy()
-
+    # Base features
     df = add_returns(df)
     df = add_volatility(df)
     df = add_cumulated_returns(df)
     df = add_rsi(df)
-    df = add_stochastic_oscillator(df)
     df = add_volume_roc(df)
     df = add_atr(df)
 
+    # MA-based features
+    df['MA50'] = df['Close'].rolling(window=50).mean()
+    df['MA200'] = df['Close'].rolling(window=200).mean()
 
-    return df
+    df['Distance_GC'] = (df['MA50'] - df['MA200']) / df['MA200']
+    df['MA_velocity'] = (df['MA50'] - df['MA50'].shift(5)) - (df['MA200'] - df['MA200'].shift(5))
+    df['MA50_slope'] = df['MA50'].diff(10) / df['MA50']
+    df['Distance_normalized'] = df['Distance_GC'] / df['Volatility'].rolling(50).mean()
+    df['MA50_accel'] = df['MA50'].diff(5) - df['MA50'].diff(10)
+    df['MA_cross_momentum'] = df['MA50_accel'] / df['Distance_GC'].abs()
 
+    # VIX spike, we fetch and merge on date
+    vix_data = yf.Ticker("^VIX").history(start="2000-01-01", end="2024-12-31")
+    vix_close = vix_data['Close'].rename('VIX')
+    vix_close.index = vix_close.index.tz_localize(None)
+
+    date_col = pd.to_datetime(df['Date'])
+    if date_col.dt.tz is not None:
+        date_col = date_col.dt.tz_localize(None)
+
+    df = df.set_index(date_col)
+    df = df.drop(columns=['Date'], errors='ignore')
+    df = df.join(vix_close, how='left')
+    df = df.reset_index(drop=True)
+
+    df['VIX_spike'] = df['VIX'] / df['VIX'].rolling(60).mean()
+
+    # Drop everything not in COLUMN_ORDER
+    to_drop = [
+        'Close', 'High', 'Low', 'Open', 'MA50', 'MA200', 'VIX', 'MA50_accel',
+        'Volume', 'Dividends', 'Stock Splits', 'Capital Gains',
+        'Golden_Cross', 'Date'
+    ]
+    df = df.drop(columns=[c for c in to_drop if c in df.columns])
+
+    return df[COLUMN_ORDER]
