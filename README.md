@@ -9,6 +9,7 @@ predictors in financial time series.
 Does training asset selection drive the cross-asset generalizability of ML-based
 Golden Cross / Death Cross transition predictors — and if so, what asset properties
 explain this effect?
+For now, we are exploring and testing whether this claim may be true.
 
 ## Project Structure
 
