@@ -4,8 +4,9 @@ import numpy as np
 
 
 class RFCModel:
+    # Defaults are the values selected in notebooks/02; scripts/run_main.py passes them explicitly.
 
-    def __init__(self, 
+    def __init__(self,
             n_estimators=346,
             max_depth=9,
             min_samples_split=17,

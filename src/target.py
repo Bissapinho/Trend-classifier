@@ -42,3 +42,20 @@ def noisy_regime(close: pd.Series, sigma, rng, short=50, long=200):
     """
     noisy = close * (1 + rng.normal(0, sigma, len(close)))
     return regime(noisy, short, long)
+
+
+# Label helpers used by notebooks/01_target_testing.ipynb (string labels, 'Trend' column)
+
+def add_target(df: pd.DataFrame, period=60, goalreturn=0.05):
+    """Return-based target as a 'Trend' column ('Bullish' / 'Non-Bullish')."""
+    df = df.copy()
+    df['Trend'] = return_target(df['Close'], period, goalreturn).map({1: 'Bullish', 0: 'Non-Bullish'})
+    return df
+
+
+def add_target_ma_cross(df: pd.DataFrame, short_window=50, long_window=200):
+    """MA regime as a 'Trend' column; NaN while the long average is undefined."""
+    df = df.copy()
+    label = regime(df['Close'], short_window, long_window).map({1: 'Bullish', 0: 'Non-Bullish'})
+    df['Trend'] = label.where(df['Close'].rolling(long_window).mean().notna())
+    return df

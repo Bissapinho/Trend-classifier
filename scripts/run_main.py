@@ -42,8 +42,10 @@ US = ['SPY', 'DIA', 'QQQ']
 OUT = PROJECT_ROOT / 'results'
 
 # Hyperparameters from RandomizedSearchCV on the SPY training set (notebooks/02_model_selection.ipynb)
-XGB_PARAMS = {}
-RFC_PARAMS = {}
+XGB_PARAMS = dict(n_estimators=138, max_depth=5, learning_rate=0.0430, subsample=0.7273,
+                  colsample_bytree=0.6976, gamma=0.0536, min_child_weight=1)
+RFC_PARAMS = dict(n_estimators=346, max_depth=9, min_samples_split=17, min_samples_leaf=5,
+                  max_features=0.5463)
 
 
 def prepare_asset(ticker, df_raw=None):

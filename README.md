@@ -1,4 +1,14 @@
-# Golden Cross Transition Classifier
+# Anticipating Golden Crosses: ML Classifiers vs. a Moving-Average Extrapolation Rule
+
+**Paper:** [PDF](paper/GC_prediction_paper.pdf) · [LaTeX source](paper/GC_prediction_paper.tex)
+
+- With the decision threshold selected on validation data instead of the test set, mean F1 over
+  SPY/DIA/QQQ falls from 0.738 to 0.595 (XGBoost) and from 0.720 to 0.633 (Random Forest).
+- A rule that extrapolates the 5-day trend of the MA50/MA200 gap reaches 0.720 with no parameter fitted
+  to data. A paired block bootstrap finds it better than both models on QQQ and better than XGBoost on
+  TLT, and finds no asset where a model is better.
+- The models alert earlier on SPY and DIA, but over the five assets they produce 3.0 (Random Forest)
+  and 4.0 (XGBoost) times as many false-alarm days as the rule.
 
 ## Question
 
@@ -109,14 +119,20 @@ python scripts/perturbation.py      # sensitivity to 1e-6 price perturbations
 python scripts/make_figures.py      # figures/ (needs run_main first)
 ```
 
-`run_main.py` takes about 1 minute. The first run downloads the data and caches it in `data/`.
+`run_main.py` takes about 2 minutes. The first run downloads the data and caches it in `data/`.
 Yahoo Finance returns slightly different adjusted prices from one download to the next, so a fresh
-cache can give numbers that differ from the ones above, mostly for XGBoost.
+cache can give numbers that differ from the ones above, mostly for XGBoost. To check whether your
+cached CSVs are the ones used for `results/`:
+
+```bash
+python scripts/verify_data.py
+```
+
+(equivalent to `cd data && sha256sum -c CHECKSUMS.sha256`).
 
 The notebooks show the exploration. `01` covers target selection and noise tests, and `02` the
 hyperparameter search and the first evaluation, where thresholds were chosen on the test set.
-`03` runs the corrected evaluation. Notebook `01` imports target-exploration functions that are no
-longer in `src/features.py`; their current versions are in `src/target.py` and `scripts/target_analysis.py`.
+`03` runs the corrected evaluation.
 
 The paper source is in [paper/GC_prediction_paper.tex](paper/GC_prediction_paper.tex).
 
