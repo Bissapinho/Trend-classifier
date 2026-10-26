@@ -1,0 +1,74 @@
+{
+  "run_date": "2026-10-26",
+  "runtime_s": 52,
+  "python": "3.13.3",
+  "versions": {
+    "pandas": "3.1.0",
+    "numpy": "2.5.4",
+    "scikit-learn": "1.9.1",
+    "xgboost": "3.4.1",
+    "yfinance": "1.7.0"
+  },
+  "thresholds": {
+    "XGB": 0.2,
+    "RFC": 0.45
+  },
+  "validation_f1": {
+    "XGB": 0.792,
+    "RFC": 0.76
+  },
+  "average_precision": {
+    "SPY": {
+      "XGB": 0.79,
+      "RFC": 0.726
+    },
+    "DIA": {
+      "XGB": 0.697,
+      "RFC": 0.663
+    },
+    "QQQ": {
+      "XGB": 0.822,
+      "RFC": 0.777
+    },
+    "GLD": {
+      "XGB": 0.827,
+      "RFC": 0.802
+    },
+    "TLT": {
+      "XGB": 0.769,
+      "RFC": 0.736
+    }
+  },
+  "walk_forward_pooled_f1": {
+    "XGB": 0.651,
+    "RFC": 0.638
+  },
+  "walk_forward_mean_std": {
+    "XGB": [
+      0.633,
+      0.196
+    ],
+    "RFC": [
+      0.619,
+      0.137
+    ]
+  },
+  "mean_f1_spy_dia_qqq": {
+    "Extrapolation": 0.72,
+    "RFC": 0.633,
+    "Stratified (expected)": 0.105,
+    "XGB": 0.595
+  },
+  "mean_f1_spy_dia_qqq_naive": {
+    "RFC": 0.72,
+    "XGB": 0.738
+  },
+  "settings": {
+    "split": 0.75,
+    "horizon": 30,
+    "embargo": 30,
+    "bootstrap_B": 1000,
+    "validation_frac": 0.2,
+    "seed": 42
+  }
+}

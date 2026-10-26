@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
-import yfinance as yf
+
+from src.data_loader import load_data
 
 
 COLUMN_ORDER = [
@@ -81,9 +82,8 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
     df['MA_cross_momentum'] = df['MA50_accel'] / df['Distance_GC'].abs()
 
     # VIX spike, we fetch and merge on date
-    vix_data = yf.Ticker("^VIX").history(start="2000-01-01", end="2024-12-31")
-    vix_close = vix_data['Close'].rename('VIX')
-    vix_close.index = vix_close.index.tz_localize(None)
+    vix_data = load_data('^VIX')
+    vix_close = vix_data.set_index('Date')['Close'].rename('VIX')
 
     date_col = pd.to_datetime(df['Date'])
     if date_col.dt.tz is not None:

@@ -1,0 +1,121 @@
+{
+  "return_target_grid": [
+    {
+      "period": 15,
+      "goalreturn": 0.03,
+      "pos_rate": 0.227,
+      "switches": 678
+    },
+    {
+      "period": 15,
+      "goalreturn": 0.05,
+      "pos_rate": 0.078,
+      "switches": 352
+    },
+    {
+      "period": 15,
+      "goalreturn": 0.07,
+      "pos_rate": 0.033,
+      "switches": 142
+    },
+    {
+      "period": 15,
+      "goalreturn": 0.1,
+      "pos_rate": 0.01,
+      "switches": 52
+    },
+    {
+      "period": 30,
+      "goalreturn": 0.03,
+      "pos_rate": 0.386,
+      "switches": 564
+    },
+    {
+      "period": 30,
+      "goalreturn": 0.05,
+      "pos_rate": 0.198,
+      "switches": 448
+    },
+    {
+      "period": 30,
+      "goalreturn": 0.07,
+      "pos_rate": 0.092,
+      "switches": 286
+    },
+    {
+      "period": 30,
+      "goalreturn": 0.1,
+      "pos_rate": 0.028,
+      "switches": 106
+    },
+    {
+      "period": 60,
+      "goalreturn": 0.03,
+      "pos_rate": 0.522,
+      "switches": 394
+    },
+    {
+      "period": 60,
+      "goalreturn": 0.05,
+      "pos_rate": 0.367,
+      "switches": 440
+    },
+    {
+      "period": 60,
+      "goalreturn": 0.07,
+      "pos_rate": 0.238,
+      "switches": 372
+    },
+    {
+      "period": 60,
+      "goalreturn": 0.1,
+      "pos_rate": 0.099,
+      "switches": 238
+    },
+    {
+      "period": 90,
+      "goalreturn": 0.03,
+      "pos_rate": 0.571,
+      "switches": 329
+    },
+    {
+      "period": 90,
+      "goalreturn": 0.05,
+      "pos_rate": 0.463,
+      "switches": 345
+    },
+    {
+      "period": 90,
+      "goalreturn": 0.07,
+      "pos_rate": 0.351,
+      "switches": 352
+    },
+    {
+      "period": 90,
+      "goalreturn": 0.1,
+      "pos_rate": 0.199,
+      "switches": 280
+    }
+  ],
+  "return_target_60_005": {
+    "switches": 440,
+    "pos_rate": 0.367,
+    "pos_rate_2013_2017": 0.338
+  },
+  "ma_regime": {
+    "crossings": 24,
+    "bullish_share": 0.719,
+    "bullish_share_2013_2017": 0.895
+  },
+  "noise": {
+    "max_target_bias": 0.07,
+    "flip_rate_min": 0.005,
+    "flip_rate_max": 0.211,
+    "sigmas": [
+      0.01,
+      0.5
+    ],
+    "reps": 50,
+    "noise_scale": "sigma * std(Close) added to prices"
+  }
+}
