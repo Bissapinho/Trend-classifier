@@ -1,0 +1,11 @@
+Asset,Comparison,F1_diff,CI_low,CI_high,Share_diff_le_0,CI_excludes_0
+SPY,Extrapolation - XGB,0.117,-0.071,0.312,0.1085,False
+SPY,Extrapolation - RFC,0.072,-0.115,0.262,0.2035,False
+DIA,Extrapolation - XGB,0.043,-0.111,0.241,0.228,False
+DIA,Extrapolation - RFC,-0.051,-0.185,0.132,0.6905,False
+QQQ,Extrapolation - XGB,0.216,0.053,0.422,0.003,True
+QQQ,Extrapolation - RFC,0.24,0.073,0.452,0.001,True
+GLD,Extrapolation - XGB,-0.011,-0.144,0.111,0.6225,False
+GLD,Extrapolation - RFC,-0.036,-0.168,0.087,0.7415,False
+TLT,Extrapolation - XGB,0.166,0.003,0.341,0.0245,True
+TLT,Extrapolation - RFC,0.124,-0.049,0.31,0.0755,False

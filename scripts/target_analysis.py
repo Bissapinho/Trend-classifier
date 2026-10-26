@@ -1,4 +1,4 @@
-"""Target study on SPY: return-based target vs MA50/MA200 regime, noise robustness.
+"""Target study on SPY: return-based target vs MA50/MA200 regime, robustness to multiplicative price noise.
 
 Writes results/target_analysis.json, results/noise_curves.csv and figures/target_*.pdf.
 
@@ -24,7 +24,8 @@ OUT = PROJECT_ROOT / 'results'
 FIG = PROJECT_ROOT / 'figures'
 PERIODS = [15, 30, 60, 90]
 GOALS = [0.03, 0.05, 0.07, 0.10]
-SIGMAS = np.linspace(0.01, 0.5, 50)
+# Relative noise from 0.4% to 20% of the price, i.e. about 0.3 to 16 times the daily return sd of SPY
+SIGMAS = np.linspace(0.004, 0.20, 50)
 REPS = 50
 
 
@@ -78,6 +79,7 @@ def main():
 
     rng = np.random.default_rng(42)
     p_clean = reg[ma_valid].mean()
+    daily_sd = close.pct_change().std()
     bias, flip = [], []
     for s in SIGMAS:
         b, f = [], []
@@ -99,7 +101,10 @@ def main():
         'noise': {'max_target_bias': round(max(bias), 3),
                   'flip_rate_min': round(min(flip), 3), 'flip_rate_max': round(max(flip), 3),
                   'sigmas': [float(SIGMAS[0]), float(SIGMAS[-1])], 'reps': REPS,
-                  'noise_scale': 'sigma * std(Close) added to prices'},
+                  'noise_scale': 'prices multiplied by (1 + e), e ~ N(0, sigma^2)',
+                  'spy_daily_return_sd': round(float(daily_sd), 4),
+                  'flip_rate_at_sigma_near_daily_sd': round(float(np.interp(daily_sd, SIGMAS, flip)), 3),
+                  'target_bias_at_sigma_near_daily_sd': round(float(np.interp(daily_sd, SIGMAS, bias)), 4)},
     }
     (OUT / 'target_analysis.json').write_text(json.dumps(summary, indent=2))
     print(json.dumps({k: v for k, v in summary.items() if k != 'return_target_grid'}, indent=2))
@@ -111,11 +116,11 @@ def main():
 
     fig, axes = plt.subplots(1, 2, figsize=(10, 3.2))
     axes[0].plot(SIGMAS, bias, marker='o', ms=3)
-    axes[0].set_xlabel(r'$\sigma$')
+    axes[0].set_xlabel(r'$\sigma$ (relative price noise)')
     axes[0].set_ylabel(r'$|\Delta P|$')
     axes[0].set_title('Change in bullish share')
     axes[1].plot(SIGMAS, flip, marker='o', ms=3, color='tab:orange')
-    axes[1].set_xlabel(r'$\sigma$')
+    axes[1].set_xlabel(r'$\sigma$ (relative price noise)')
     axes[1].set_ylabel('Flip rate')
     axes[1].set_title('Share of labels changed')
     fig.tight_layout()

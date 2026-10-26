@@ -1,6 +1,6 @@
 {
   "run_date": "2026-10-26",
-  "runtime_s": 52,
+  "runtime_s": 113,
   "python": "3.13.3",
   "versions": {
     "pandas": "3.1.0",
@@ -20,23 +20,28 @@
   "average_precision": {
     "SPY": {
       "XGB": 0.79,
-      "RFC": 0.726
+      "RFC": 0.726,
+      "Extrapolation": 0.827
     },
     "DIA": {
       "XGB": 0.697,
-      "RFC": 0.663
+      "RFC": 0.663,
+      "Extrapolation": 0.602
     },
     "QQQ": {
       "XGB": 0.822,
-      "RFC": 0.777
+      "RFC": 0.777,
+      "Extrapolation": 0.893
     },
     "GLD": {
       "XGB": 0.827,
-      "RFC": 0.802
+      "RFC": 0.802,
+      "Extrapolation": 0.818
     },
     "TLT": {
       "XGB": 0.769,
-      "RFC": 0.736
+      "RFC": 0.736,
+      "Extrapolation": 0.797
     }
   },
   "walk_forward_pooled_f1": {
@@ -63,11 +68,85 @@
     "RFC": 0.72,
     "XGB": 0.738
   },
+  "protocol_decomposition_mean_f1_spy_dia_qqq": {
+    "a_test_threshold_embargo": {
+      "RFC": 0.71,
+      "XGB": 0.72
+    },
+    "b_validation_threshold_no_embargo": {
+      "RFC": 0.617,
+      "XGB": 0.581
+    },
+    "corrected": {
+      "RFC": 0.633,
+      "XGB": 0.595
+    },
+    "naive": {
+      "RFC": 0.72,
+      "XGB": 0.738
+    }
+  },
+  "protocol_decomposition_thresholds": {
+    "a_test_threshold_embargo": {
+      "RFC": 0.7,
+      "XGB": 0.85
+    },
+    "b_validation_threshold_no_embargo": {
+      "RFC": 0.45,
+      "XGB": 0.25
+    },
+    "corrected": {
+      "RFC": 0.45,
+      "XGB": 0.2
+    },
+    "naive": {
+      "RFC": 0.65,
+      "XGB": 0.9
+    }
+  },
+  "protocol_decomposition_effects": {
+    "XGB": {
+      "embargo_with_test_threshold": -0.018,
+      "embargo_with_validation_threshold": 0.014,
+      "validation_threshold_without_embargo": -0.157,
+      "validation_threshold_with_embargo": -0.125,
+      "total": -0.143
+    },
+    "RFC": {
+      "embargo_with_test_threshold": -0.01,
+      "embargo_with_validation_threshold": 0.016,
+      "validation_threshold_without_embargo": -0.103,
+      "validation_threshold_with_embargo": -0.077,
+      "total": -0.087
+    }
+  },
+  "event_summary": {
+    "pooled_FA_days": {
+      "Extrapolation": 221,
+      "RFC": 658,
+      "XGB": 884
+    },
+    "pooled_FA_episodes": {
+      "Extrapolation": 20,
+      "RFC": 36,
+      "XGB": 63
+    },
+    "pooled_FA_days_ratio_to_rule": {
+      "Extrapolation": 1.0,
+      "RFC": 2.98,
+      "XGB": 4.0
+    },
+    "per_asset_FA_days_ratio_to_rule_range": [
+      1.93,
+      7.47
+    ]
+  },
   "settings": {
     "split": 0.75,
     "horizon": 30,
     "embargo": 30,
     "bootstrap_B": 1000,
+    "paired_bootstrap_B": 2000,
     "validation_frac": 0.2,
     "seed": 42
   }

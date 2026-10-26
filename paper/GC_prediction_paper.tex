@@ -30,11 +30,15 @@ DIA, QQQ, GLD and TLT. Under a first evaluation protocol, in which the decision 
 selected on the test set and confidence intervals assume independent observations, XGBoost
 reaches a mean F1 of 0.738 on SPY, DIA and QQQ. We then correct three weaknesses of this protocol.
 Selecting the threshold on a validation block inside the training period, with a 30-day embargo,
-lowers the mean F1 to 0.595 for XGBoost and 0.633 for Random Forest. A moving-block bootstrap that
-respects the 30-day autocorrelation of the labels makes the confidence intervals 2.6 to 3.7
-times wider. Finally, a rule with no learned parameters, which linearly extrapolates the gap between
-the two moving averages, obtains a mean F1 of 0.720 and exceeds both models on three of the five
-assets. Each test set contains only 5 to 10 crossover events, and XGBoost results move by
+lowers the mean F1 to 0.595 for XGBoost and 0.633 for Random Forest; almost all of this drop comes
+from the source of the threshold, and the embargo changes mean F1 by less than 0.02. A moving-block
+bootstrap that respects the 30-day autocorrelation of the labels makes the confidence intervals 2.6
+to 3.7 times wider. Finally, a rule with no parameter fitted to data, which linearly extrapolates the
+gap between the two moving averages, obtains a mean F1 of 0.720 and the highest F1 on three of the
+five assets. A paired block bootstrap finds the rule better than both models on QQQ and better than
+XGBoost on TLT, and finds no asset where a model is significantly better than the rule. Pooled over
+the five assets, the models produce 3.0 (Random Forest) and 4.0 (XGBoost) times as many false-alarm
+days as the rule. Each test set contains only 5 to 10 crossover events, and XGBoost results move by
 up to 0.047 in mean F1 when prices are perturbed by one part in a million. We conclude that
 crossover timing over a 30-day horizon is largely predictable from the mechanics of the moving
 averages themselves, and that the apparent contribution of the classifiers is mostly an artefact
@@ -59,10 +63,12 @@ Our contributions are:
 \begin{enumerate}
   \item a reproducible pipeline for predicting MA50/MA200 crossovers 30 days ahead, trained on
         SPY and transferred to four other ETFs;
-  \item a decomposition of how the evaluation protocol inflates performance: threshold selection
-        on the test set and observation-level bootstrap intervals;
-  \item a parameter-free extrapolation baseline that matches the learned models, showing that the
-        target is largely predictable by construction;
+  \item a decomposition of how the evaluation protocol inflates performance, separating threshold
+        selection on the test set from the train/test embargo, and a comparison of
+        observation-level and block bootstrap intervals;
+  \item an extrapolation baseline with no parameter fitted to data that matches or exceeds the
+        learned models, compared with them through a paired block bootstrap and event-level
+        metrics, showing that the target is largely predictable by construction;
   \item an account of the statistical limits of the setting: few independent events per test set,
         threshold instability across time, and sensitivity to negligible numerical perturbations.
 \end{enumerate}
@@ -151,23 +157,18 @@ Positive days form contiguous blocks of 30, one block per crossover (two crossov
 The last 30 days of the sample cannot be labeled positive, since crossovers after
 30 December 2024 are not observed.
 
-\subsection{Robustness of the regime label}
-
-We added Gaussian noise $\mathcal{N}(0,(\sigma\cdot\mathrm{sd}(P))^2)$ to the SPY price series,
-where $\mathrm{sd}(P)$ is the standard deviation of the closing price over the sample, recomputed
-$s_t$, and repeated this 50 times for each of 50 values of $\sigma\in[0.01,0.5]$. The absolute
-change in the share of bullish days is at most 7.0\%, while the share of individual labels that
-change rises from 0.5\% to 21.1\% (Figure~\ref{fig:noise}). The global regime structure is stable;
-labels close to a crossover are sensitive to noise, as expected.
+Appendix~\ref{app:noise} checks that the regime label $s_t$ is stable under multiplicative price
+noise of the size of daily price moves.
 
 \section{Methodology}\label{sec:method}
 
 \subsection{Features}
 
 We use 12 features computed from past data only (Table~\ref{tab:features}). Raw price levels are
-excluded because they are period-specific. Two features, ATR and MA velocity, are expressed in
-price units, which matters when a model trained on SPY is applied to assets with different
-price levels.
+excluded because they are period-specific. Three features are expressed in price units: ATR,
+MA velocity, and MA\_cross\_momentum, whose numerator is a difference of $\mathrm{MA}_{50}$ values
+in dollars. This matters when a model trained on SPY is applied to assets with different price
+levels.
 
 The moving-average features are
 \begin{align}
@@ -273,6 +274,24 @@ maximizes validation F1. The final model is then trained on the full training se
 come from a moving-block bootstrap with blocks of 30 days \citep{kunsch1989}. Both bootstraps use
 $B=1000$ resamples and percentile intervals at 95\%.
 
+\paragraph{Intermediate protocols.} The two protocols differ in two respects: where the threshold
+is selected, and whether the 30 days before each boundary are dropped. To separate them, we
+evaluate two intermediate variants. In variant (a), the threshold is selected on the SPY test set,
+as in the naive protocol, but the model is trained without the last 30 training days, as in the
+corrected protocol. In variant (b), the threshold is selected on the validation block, as in the
+corrected protocol, but without any embargo: the inner model is trained on all days before the
+validation block and the final model on the full training set.
+
+\paragraph{Paired comparison.} To compare the extrapolation rule with a model on a given asset,
+we resample the same 30-day blocks for both methods, compute the difference of their F1 scores on
+each resample ($B=2000$), and report the 95\% percentile interval of that difference.
+
+\paragraph{Event-level metrics.} F1 on daily labels counts each crossover 30 times and does not
+show when alerts start. For each crossover, the lead time is the number of days between the first
+alert in the 30 days before it and the crossover; by construction it cannot exceed 30. A
+false-alarm day is an alert on a negative day. A false-alarm episode is a run of consecutive
+alert days that contains no positive day.
+
 \subsection{Baselines}
 
 \paragraph{Extrapolation rule.} Let $\dot g_t = (g_t - g_{t-5})/5$. If the gap kept its recent
@@ -280,9 +299,14 @@ trend, it would reach zero after $\tau_t = -g_t/\dot g_t$ days. The rule predict
 \begin{equation}
   \hat y_t = \mathbb{1}\left[0 < \tau_t \le 30\right].
 \end{equation}
-The horizon equals the target horizon, and a search over $\{5,10,\dots,90\}$ on the SPY training
-set also selects 30, so the rule has no learned parameter. Its rationale is mechanical:
+The lookback of 5 days was fixed by hand and not tuned. The horizon is set equal to the target
+horizon; as a check, a search over $\{5,10,\dots,90\}$ on the SPY training set also selects 30.
+No parameter of the rule is fitted to data. Its rationale is mechanical:
 $\mathrm{MA}_{200}(t+30)$ shares 170 of its 200 prices with information available at $t$.
+
+For threshold-free comparisons we use the continuous score $1/(1+\tau_t)$, set to 0 when no
+crossover is predicted ($\tau_t \le 0$ or $\dot g_t = 0$). It orders days in the same way as
+$-\tau_t$, and the binary rule corresponds to a score of at least $1/31$.
 
 \paragraph{Stratified random.} Predicting 1 at random with the training positive rate $p$ gives an
 expected F1 of $2pq/(p+q)$, where $q$ is the test positive rate.
@@ -376,20 +400,107 @@ Stratified is the expected F1 of random predictions.}
 \label{tab:main}
 \end{table}
 
+Table~\ref{tab:decomp} isolates the two changes between the protocols. Moving threshold selection
+from the test set to the validation block lowers mean F1 by 0.077 to 0.103 for Random Forest and
+by 0.125 to 0.157 for XGBoost, depending on whether the embargo is applied. The embargo changes
+mean F1 by $-0.010$ or $+0.016$ for Random Forest and by $-0.018$ or $+0.014$ for XGBoost.
+Under price perturbations of one part in a million, the XGBoost mean F1 varies by up to 0.047
+(Section~\ref{sec:sensitivity}), so the XGBoost differences in this table are measured with
+that much noise. Random Forest varies by 0.002 under the same perturbations and gives the more
+reliable measure: almost all of the protocol effect comes from the source of the threshold.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{llcccc}
+\toprule
+ & & \multicolumn{2}{c}{XGBoost} & \multicolumn{2}{c}{Random Forest} \\
+Threshold selected on & Embargo & $\tau$ & F1 & $\tau$ & F1 \\
+\midrule
+Test set (naive) & no & 0.90 & 0.738 & 0.65 & 0.720 \\
+Test set, variant (a) & yes & 0.85 & 0.720 & 0.70 & 0.710 \\
+Validation, variant (b) & no & 0.25 & 0.581 & 0.45 & 0.617 \\
+Validation (corrected) & yes & 0.20 & 0.595 & 0.45 & 0.633 \\
+\bottomrule
+\end{tabular}
+\caption{Mean F1 over SPY, DIA and QQQ when the two elements of the protocol are changed one at a
+time. $\tau$: selected threshold.}
+\label{tab:decomp}
+\end{table}
+
 \subsection{Comparison with the extrapolation rule}
 
 The extrapolation rule obtains the highest F1 on SPY, QQQ and TLT. Random Forest is ahead on DIA,
-and both models are ahead on GLD (Figure~\ref{fig:f1ci}). The block-bootstrap intervals of the
-three methods overlap on every asset, so no per-asset ranking is statistically supported. All
-methods are far above the stratified baseline.
+and both models are ahead on GLD (Figure~\ref{fig:f1ci}). All methods are far above the stratified
+baseline. The block-bootstrap intervals of the three methods overlap on every asset. Overlapping
+marginal intervals do not show that two methods perform alike: both are scored on the same
+crossovers, so their F1 values move together across resamples, and the interval of their
+difference can exclude zero while the marginal intervals overlap.
+
+Table~\ref{tab:paired} reports the paired comparison. The rule is better than both models on QQQ
+($+0.216$ $[0.053, 0.422]$ against XGBoost, $+0.240$ $[0.073, 0.452]$ against Random Forest) and
+better than XGBoost on TLT ($+0.166$ $[0.003, 0.341]$). The seven other intervals contain zero,
+including the three where a model has the higher F1. No comparison favors a model. These are ten
+tests without correction for multiplicity, and the TLT lower bound is close to zero.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lcc}
+\toprule
+Asset & Rule $-$ XGBoost & Rule $-$ Random Forest \\
+\midrule
+SPY & $+0.117$ $[-0.071, 0.312]$ & $+0.072$ $[-0.115, 0.262]$ \\
+DIA & $+0.043$ $[-0.111, 0.241]$ & $-0.051$ $[-0.185, 0.132]$ \\
+QQQ & $+0.216$ $[0.053, 0.422]$ & $+0.240$ $[0.073, 0.452]$ \\
+GLD & $-0.011$ $[-0.144, 0.111]$ & $-0.036$ $[-0.168, 0.087]$ \\
+TLT & $+0.166$ $[0.003, 0.341]$ & $+0.124$ $[-0.049, 0.310]$ \\
+\bottomrule
+\end{tabular}
+\caption{Difference in test F1 between the extrapolation rule and each model, with 95\% intervals
+from a paired 30-day block bootstrap ($B=2000$, same resampled days for both methods).}
+\label{tab:paired}
+\end{table}
+
+Threshold-free ranking quality on SPY, measured by average precision, is 0.790 for XGBoost,
+0.726 for Random Forest and 0.827 for the continuous score of the rule, against a prevalence of
+0.099 (Figure~\ref{fig:pr}). The rule's score has the highest average precision on SPY, QQQ (0.893)
+and TLT (0.797), the lowest on DIA (0.602, against 0.697 and 0.663), and lies between the two
+models on GLD (0.818, against 0.827 and 0.802). The model scores carry information, but on most
+assets they do not rank days better than the rule.
+
+\subsection{Event-level metrics}
 
 Every method raises at least one alert within the 30 days before each of the 35 test crossovers.
-The methods therefore differ in their false alarms, which determine precision.
+Table~\ref{tab:events} reports when the alerts start and how many are false. On SPY, the first
+alert comes a median of 30 days before the crossover for both models and 17 days for the rule,
+and the rule produces 35 false-alarm days against 158 for XGBoost and 107 for Random Forest. A
+median lead of 30 days is the ceiling set by the 30-day window: the model was already alerting
+when the window opened. The models alert earlier than the rule on SPY and DIA. On QQQ and GLD all
+three methods reach the ceiling, and on TLT the rule's median lead (27 days) is one day longer
+than the models'.
 
-Threshold-free ranking quality on SPY, measured by average precision, is 0.790 for XGBoost and
-0.726 for Random Forest against a prevalence of 0.099 (Figure~\ref{fig:pr}). The probability
-scores carry information; the difficulty lies in choosing a threshold that transfers from the
-validation period to the test period.
+The models pay for their early alerts with false alarms. Pooled over the five assets, XGBoost and
+Random Forest produce 884 and 658 false-alarm days against 221 for the rule, 4.0 and 3.0 times as
+many; per asset the ratio ranges from 1.9 to 7.5. Counted as episodes, the totals are 63, 36 and 20.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{lrccc}
+\toprule
+Asset & Crossovers & Median lead (days) & False-alarm days & False-alarm episodes / year \\
+\midrule
+SPY & 5 & 30 / 30 / 17 & 158 / 107 / 35 & 1.82 / 1.33 / 0.99 \\
+DIA & 6 & 24.5 / 24 / 15.5 & 185 / 114 / 59 & 3.15 / 1.99 / 0.50 \\
+QQQ & 5 & 30 / 30 / 30 & 142 / 139 / 19 & 1.82 / 0.99 / 0.33 \\
+GLD & 10 & 30 / 30 / 30 & 147 / 112 / 55 & 1.24 / 0.41 / 0.83 \\
+TLT & 9 & 26 / 26 / 27 & 252 / 186 / 53 & 2.96 / 1.48 / 0.93 \\
+\bottomrule
+\end{tabular}
+\caption{Event-level metrics on the test sets, in the order XGBoost / Random Forest /
+extrapolation rule. Lead times are capped at 30 days by the alert window. Years are counted as
+252 trading days.}
+\label{tab:events}
+\end{table}
 
 \subsection{Uncertainty}
 
@@ -438,11 +549,15 @@ $|g_t|$ and amplifies small differences near a crossover.
 30 days in advance far better than chance. Most of this predictability follows from the
 construction of the averages: a linear extrapolation of their gap reaches an F1 of 0.720 on SPY,
 DIA and QQQ, and neither classifier exceeds it once the threshold is selected without access to
-the test set.
+the test set. The paired test finds no asset where a model is significantly better than the rule.
+The models start alerting earlier on two of the five assets, at the cost of three to four times
+as many false-alarm days overall.
 
-\paragraph{Protocol effects.} Selecting the threshold on the test set raised mean F1 by 0.143 for
-XGBoost and 0.087 for Random Forest. Observation-level bootstrap intervals were about three times
-too narrow. Both effects are easy to miss when labels overlap in time.
+\paragraph{Protocol effects.} Moving from the naive to the corrected protocol lowered mean F1 by
+0.143 for XGBoost and 0.087 for Random Forest. Most of this comes from selecting the threshold on
+the test set; the embargo has an effect below 0.02 in either direction. Observation-level bootstrap
+intervals were about three times too narrow. Both problems are easy to miss when labels overlap
+in time.
 
 \paragraph{Limitations.}
 \begin{itemize}
@@ -453,9 +568,13 @@ too narrow. Both effects are easy to miss when labels overlap in time.
   \item XGBoost results are sensitive to negligible numerical perturbations of the input data.
   \item Hyperparameters come from a search whose early stopping used a fold that the search also
         scored.
-  \item ATR and MA velocity are not scale-free, which affects transfer to other assets.
-  \item F1 on daily labels counts each crossover 30 times. An event-level metric that penalizes
-        false alarms per unit of time would better reflect practical use.
+  \item Hyperparameters were selected on the SPY training set, which ends in December 2018. It
+        overlaps walk-forward folds 2 and 3, so these two folds are not fully out of sample for
+        the hyperparameters.
+  \item ATR, MA velocity and MA\_cross\_momentum are expressed in price units (the numerator of
+        MA\_cross\_momentum is in dollars), which affects transfer to other assets.
+  \item Lead times are capped at 30 days by the alert window, so they cannot show whether a model
+        anticipates a crossover by more than 30 days.
   \item The study evaluates classification only. It does not evaluate a trading strategy,
         transaction costs or returns.
 \end{itemize}
@@ -469,15 +588,16 @@ between present and future averages is smaller, would also make the task less tr
 
 A first evaluation suggested that XGBoost predicts Golden and Death Crosses 30 days ahead with an
 F1 of about 0.74 and transfers across ETFs. With the threshold selected on validation data, an
-embargo at the train/test boundary and block bootstrap intervals, F1 falls to about 0.6, and a
-parameter-free extrapolation of the moving-average gap reaches 0.72. The modest result that
+embargo at the train/test boundary and block bootstrap intervals, F1 falls to about 0.6, and an
+extrapolation of the moving-average gap with no fitted parameter reaches 0.72, with three to four
+times fewer false-alarm days than the models. The modest result that
 remains is that crossover timing at this horizon is largely mechanical, and that evaluation
 choices can easily create the impression of a learned signal.
 
 \paragraph{Reproducibility.} Code and all result tables are available at
 \url{https://github.com/Bissapinho/Trend-classifier}. \texttt{scripts/run\_main.py} produces every number of
 Section~\ref{sec:results} except Section~\ref{sec:sensitivity}, which comes from
-\texttt{scripts/perturbation.py}; Section~\ref{sec:data} comes from
+\texttt{scripts/perturbation.py}; Section~\ref{sec:data} and Appendix~\ref{app:noise} come from
 \texttt{scripts/target\_analysis.py}.
 
 \begin{thebibliography}{9}
@@ -525,7 +645,27 @@ L{\'o}pez de Prado, M. (2018).
 
 \clearpage
 \appendix
-\section{Figures}
+\section{Robustness of the regime label}\label{app:noise}
+
+We multiplied each SPY closing price by $(1+\varepsilon_t)$, with $\varepsilon_t\sim\mathcal{N}(0,\sigma^2)$
+independent across days, recomputed $s_t$, and repeated this 50 times for each of 50 values of
+$\sigma\in[0.004, 0.20]$. The noise is proportional to each day's price and uses no information
+from other dates. For reference, the standard deviation of SPY daily returns is 0.0122. At
+$\sigma$ equal to that value, 0.4\% of labels change and the share of bullish days moves by 0.09
+percentage points. Over the whole grid, the share of labels that change rises from 0.1\% to 8.4\%
+and the share of bullish days moves by at most 1.9 percentage points (Figure~\ref{fig:noise}).
+The regime label is therefore stable under noise of the size of daily price moves.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\textwidth]{target_noise.pdf}
+\caption{Robustness of the regime label to multiplicative price noise: change in the share of
+bullish days (left) and share of labels that change (right), averaged over 50 draws per $\sigma$.}
+\label{fig:noise}
+\end{figure}
+
+\clearpage
+\section{Additional figures}
 
 \begin{figure}[h]
 \centering
@@ -539,14 +679,6 @@ L{\'o}pez de Prado, M. (2018).
 \includegraphics[width=\textwidth]{target_gc.pdf}
 \caption{MA50/MA200 regime on SPY: 24 crossovers.}
 \label{fig:target_gc}
-\end{figure}
-
-\begin{figure}[h]
-\centering
-\includegraphics[width=\textwidth]{target_noise.pdf}
-\caption{Noise robustness of the regime label: change in the share of bullish days (left) and
-share of labels that change (right), averaged over 50 draws per $\sigma$.}
-\label{fig:noise}
 \end{figure}
 
 \begin{figure}[h]
@@ -568,8 +700,9 @@ intervals. Black marks: expected F1 of stratified random predictions.}
 \begin{figure}[h]
 \centering
 \includegraphics[width=0.6\textwidth]{pr_curve_spy.pdf}
-\caption{Precision-recall curves on the SPY test set. Diamonds: operating points at the
-validation-selected thresholds. Star: extrapolation rule. AP: average precision.}
+\caption{Precision-recall curves on the SPY test set. The extrapolation rule's curve uses the
+continuous score $1/(1+\tau_t)$. Diamonds: operating points at the validation-selected thresholds.
+Star: binary extrapolation rule ($\tau_t \le 30$). AP: average precision.}
 \label{fig:pr}
 \end{figure}
 

@@ -108,14 +108,17 @@
     "bullish_share_2013_2017": 0.895
   },
   "noise": {
-    "max_target_bias": 0.07,
-    "flip_rate_min": 0.005,
-    "flip_rate_max": 0.211,
+    "max_target_bias": 0.019,
+    "flip_rate_min": 0.001,
+    "flip_rate_max": 0.084,
     "sigmas": [
-      0.01,
-      0.5
+      0.004,
+      0.2
     ],
     "reps": 50,
-    "noise_scale": "sigma * std(Close) added to prices"
+    "noise_scale": "prices multiplied by (1 + e), e ~ N(0, sigma^2)",
+    "spy_daily_return_sd": 0.0122,
+    "flip_rate_at_sigma_near_daily_sd": 0.004,
+    "target_bias_at_sigma_near_daily_sd": 0.0009
   }
 }

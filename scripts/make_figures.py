@@ -28,9 +28,12 @@ def pr_curve(pred, info):
         ax.plot(r, p, color=COLORS[name], lw=1.5, label=f"{LABELS[name]} (AP={ap:.3f})")
         op = (spy[f'proba_{name}'] >= info['thresholds'][name]).astype(int)
         ax.scatter(recall_score(spy['y'], op), precision_score(spy['y'], op), color=COLORS[name], marker='D', zorder=5)
+    p, r, _ = precision_recall_curve(spy['y'], spy['score_Extrapolation'])
+    ap = info['average_precision']['SPY']['Extrapolation']
+    ax.plot(r, p, color=COLORS['Extrapolation'], lw=1.5, label=f"{LABELS['Extrapolation']} (AP={ap:.3f})")
     e = spy['pred_Extrapolation']
     ax.scatter(recall_score(spy['y'], e), precision_score(spy['y'], e), color=COLORS['Extrapolation'],
-               marker='*', s=120, zorder=5, label=LABELS['Extrapolation'])
+               marker='*', s=120, zorder=5)
     ax.axhline(spy['y'].mean(), color='gray', ls='--', lw=1, label=f"Prevalence ({spy['y'].mean():.2f})")
     ax.set_xlabel('Recall')
     ax.set_ylabel('Precision')

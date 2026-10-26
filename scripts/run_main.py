@@ -26,9 +26,10 @@ from src.data_loader import load_data
 from src.features import build_features, COLUMN_ORDER
 from src.target import compute_transition
 from src.models import RFCModel, XGBModel
-from src.baselines import extrapolation_rule, stratified_expected_f1
+from src.baselines import extrapolation_rule, extrapolation_score, stratified_expected_f1
 from src.evaluation import (fit_with_validation_threshold, calibrate_threshold, iid_bootstrap_f1,
-                            block_bootstrap_f1, event_recall, walk_forward)
+                            block_bootstrap_f1, paired_block_bootstrap_f1_diff, event_recall,
+                            event_metrics, walk_forward)
 
 TRAIN_ASSET = 'SPY'
 ASSETS = ['SPY', 'DIA', 'QQQ', 'GLD', 'TLT']
@@ -36,6 +37,8 @@ SPLIT = 0.75
 HORIZON = 30
 EMBARGO = 30
 B = 1000
+B_PAIRED = 2000
+US = ['SPY', 'DIA', 'QQQ']
 OUT = PROJECT_ROOT / 'results'
 
 # Hyperparameters from RandomizedSearchCV on the SPY training set (notebooks/02_model_selection.ipynb)
@@ -102,7 +105,7 @@ def main():
     print(f"Extrapolation rule: best horizon on SPY train = {horizons[int(np.argmax(f1_h))]} (used: {HORIZON})")
 
     # ── Test evaluation ─────────────────────────────────────
-    rows, pred_frames, pr_auc = [], [], {}
+    rows, pred_frames, pr_auc, paired_rows, event_rows = [], [], {}, [], []
     p_train = y_tr.mean()
     for t, (_, test, _, _) in data.items():
         X_te, y_te = test[COLUMN_ORDER], test['Transition'].values
@@ -111,11 +114,30 @@ def main():
         probas = {name: m.predict_proba(X_te) for name, (m, _) in models.items()}
         preds = {name: (probas[name] >= th).astype(int) for name, (_, th) in models.items()}
         preds['Extrapolation'] = extrapolation_rule(X_te, horizon=HORIZON)
-        pr_auc[t] = {name: round(average_precision_score(y_te, p), 3) for name, p in probas.items()}
+        scores = dict(probas, Extrapolation=extrapolation_score(X_te))
+        pr_auc[t] = {name: round(average_precision_score(y_te, p), 3) for name, p in scores.items()}
         pred_frames.append(pd.DataFrame({
             'Asset': t, 'Date': test['Date'].dt.date, 'y': y_te, 'Crossing': test['Crossing'].astype(int),
-            'proba_XGB': probas['XGB'], 'proba_RFC': probas['RFC'], 'pred_Extrapolation': preds['Extrapolation'],
+            'proba_XGB': probas['XGB'], 'proba_RFC': probas['RFC'],
+            'score_Extrapolation': scores['Extrapolation'], 'pred_Extrapolation': preds['Extrapolation'],
         }))
+
+        # Paired test: same resampled days for the rule and each model
+        for name in ['XGB', 'RFC']:
+            diff, lo, hi, p_le0 = paired_block_bootstrap_f1_diff(
+                y_te, preds['Extrapolation'], preds[name], block=HORIZON, B=B_PAIRED)
+            paired_rows.append({'Asset': t, 'Comparison': f'Extrapolation - {name}',
+                                'F1_diff': round(diff, 3), 'CI_low': round(lo, 3), 'CI_high': round(hi, 3),
+                                'Share_diff_le_0': round(p_le0, 4), 'CI_excludes_0': bool(lo > 0 or hi < 0)})
+
+        years = len(y_te) / 252
+        for name, pred in preds.items():
+            ev = event_metrics(y_te, pred, cross_pos, horizon=HORIZON)
+            event_rows.append({'Asset': t, 'Model': name, 'Crossings': len(cross_pos), 'Test_years': round(years, 2),
+                               'Median_lead': ev['Median_lead'], 'Min_lead': ev['Min_lead'],
+                               'FA_days': ev['FA_days'], 'FA_days_per_year': round(ev['FA_days_per_year'], 1),
+                               'FA_episodes': ev['FA_episodes'],
+                               'FA_episodes_per_year': round(ev['FA_episodes_per_year'], 2)})
 
         for name, pred in preds.items():
             iid_lo, iid_hi = iid_bootstrap_f1(y_te, pred, B=B)
@@ -139,6 +161,23 @@ def main():
     pd.concat(pred_frames).to_csv(OUT / 'test_predictions.csv', index=False)
     print("\n" + df_res.to_string(index=False))
 
+    df_paired = pd.DataFrame(paired_rows)
+    df_paired.to_csv(OUT / 'paired_differences.csv', index=False)
+    print(f"\nPaired block bootstrap (B={B_PAIRED}), F1 rule - model:\n" + df_paired.to_string(index=False))
+
+    df_events = pd.DataFrame(event_rows)
+    df_events.to_csv(OUT / 'event_metrics.csv', index=False)
+    print("\nEvent metrics:\n" + df_events.to_string(index=False))
+    pooled = df_events.groupby('Model')[['FA_days', 'FA_episodes']].sum()
+    fa_ratio = df_events.pivot(index='Asset', columns='Model', values='FA_days')
+    fa_ratio = fa_ratio[['XGB', 'RFC']].div(fa_ratio['Extrapolation'], axis=0)
+    event_summary = {
+        'pooled_FA_days': pooled['FA_days'].to_dict(),
+        'pooled_FA_episodes': pooled['FA_episodes'].to_dict(),
+        'pooled_FA_days_ratio_to_rule': (pooled['FA_days'] / pooled.loc['Extrapolation', 'FA_days']).round(2).to_dict(),
+        'per_asset_FA_days_ratio_to_rule_range': [round(fa_ratio.values.min(), 2), round(fa_ratio.values.max(), 2)],
+    }
+
     us = df_res[df_res['Asset'].isin(['SPY', 'DIA', 'QQQ'])].groupby('Model')['F1'].mean().round(3)
     print("\nMean F1 over SPY/DIA/QQQ:\n" + us.to_string())
 
@@ -160,6 +199,48 @@ def main():
     naive_us = df_naive[df_naive['Asset'].isin(['SPY', 'DIA', 'QQQ'])].groupby('Model')['F1'].mean().round(3)
     print("\nNaive protocol:\n" + df_naive.to_string(index=False))
     print("Mean F1 over SPY/DIA/QQQ (naive):\n" + naive_us.to_string())
+
+    # ── Protocol decomposition: change one element of the naive protocol at a time ──
+    # (a) threshold on the SPY test set, model fitted without the last EMBARGO training rows
+    # (b) threshold on the validation block, no embargo (inner fit up to the block, refit on all rows)
+    n_tr = len(X_tr)
+    decomp_rows = []
+    for name, cls, params in [('XGB', XGBModel, XGB_PARAMS), ('RFC', RFCModel, RFC_PARAMS)]:
+        model_a = cls(**params).fit(X_tr.iloc[:n_tr - EMBARGO], y_tr.iloc[:n_tr - EMBARGO])
+        th_a, _ = calibrate_threshold(test_spy['Transition'], model_a.predict_proba(test_spy[COLUMN_ORDER]))
+        model_b, th_b, _ = fit_with_validation_threshold(cls, params, X_tr, y_tr, embargo=0)
+        variants = [
+            ('naive', 'test', 0, None, None),
+            ('a_test_threshold_embargo', 'test', EMBARGO, model_a, th_a),
+            ('b_validation_threshold_no_embargo', 'validation', 0, model_b, th_b),
+            ('corrected', 'validation', EMBARGO, *models[name]),
+        ]
+        for variant, source, emb, model, th in variants:
+            for t, (_, test, _, _) in data.items():
+                if variant == 'naive':
+                    r = df_naive[(df_naive['Model'] == name) & (df_naive['Asset'] == t)].iloc[0]
+                    th_v, f1 = r['Threshold'], r['F1']
+                else:
+                    pred = (model.predict_proba(test[COLUMN_ORDER]) >= th).astype(int)
+                    th_v, f1 = th, round(f1_score(test['Transition'], pred, zero_division=0), 3)
+                decomp_rows.append({'Variant': variant, 'Threshold_source': source, 'Embargo': emb,
+                                    'Model': name, 'Asset': t, 'Threshold': th_v, 'F1': f1})
+    df_decomp = pd.DataFrame(decomp_rows)
+    df_decomp.to_csv(OUT / 'protocol_decomposition.csv', index=False)
+    decomp_us = (df_decomp[df_decomp['Asset'].isin(US)].groupby(['Variant', 'Model'])['F1'].mean()
+                 .round(3).unstack())
+    decomp_th = df_decomp.groupby(['Variant', 'Model'])['Threshold'].first().unstack()
+    print("\nProtocol decomposition, mean F1 SPY/DIA/QQQ:\n" + decomp_us.to_string())
+    print("Thresholds:\n" + decomp_th.to_string())
+    # Effect of each change, measured from both ends of the path naive -> corrected
+    decomp_effects = {name: {
+        'embargo_with_test_threshold': round(decomp_us.loc['a_test_threshold_embargo', name] - decomp_us.loc['naive', name], 3),
+        'embargo_with_validation_threshold': round(decomp_us.loc['corrected', name] - decomp_us.loc['b_validation_threshold_no_embargo', name], 3),
+        'validation_threshold_without_embargo': round(decomp_us.loc['b_validation_threshold_no_embargo', name] - decomp_us.loc['naive', name], 3),
+        'validation_threshold_with_embargo': round(decomp_us.loc['corrected', name] - decomp_us.loc['a_test_threshold_embargo', name], 3),
+        'total': round(decomp_us.loc['corrected', name] - decomp_us.loc['naive', name], 3),
+    } for name in ['XGB', 'RFC']}
+    print("Effects:\n" + json.dumps(decomp_effects, indent=2))
 
     # ── Walk-forward on SPY ─────────────────────────────────
     full_spy = pd.concat([data[TRAIN_ASSET][0], data[TRAIN_ASSET][1]], ignore_index=True)
@@ -186,7 +267,11 @@ def main():
                                   for name, (d, _) in wf.items()},
         'mean_f1_spy_dia_qqq': us.to_dict(),
         'mean_f1_spy_dia_qqq_naive': naive_us.to_dict(),
-        'settings': {'split': SPLIT, 'horizon': HORIZON, 'embargo': EMBARGO, 'bootstrap_B': B,
+        'protocol_decomposition_mean_f1_spy_dia_qqq': decomp_us.to_dict(orient='index'),
+        'protocol_decomposition_thresholds': decomp_th.to_dict(orient='index'),
+        'protocol_decomposition_effects': decomp_effects,
+        'event_summary': event_summary,
+        'settings': {'split': SPLIT, 'horizon': HORIZON, 'embargo': EMBARGO, 'bootstrap_B': B, 'paired_bootstrap_B': B_PAIRED,
                      'validation_frac': 0.2, 'seed': 42},
     }
     (OUT / 'run_info.json').write_text(json.dumps(run_info, indent=2))

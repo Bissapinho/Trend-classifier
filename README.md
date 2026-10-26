@@ -8,7 +8,7 @@ that the 50-day and 200-day simple moving averages of an ETF are about to cross
 between the two averages?
 
 A first evaluation gave a mean F1 of 0.74. This repository documents how that number changes
-under a stricter protocol, and compares the models with a rule that has no learned parameters.
+under a stricter protocol, and compares the models with a rule that has no parameter fitted to data.
 
 ![Protocol effect](figures/protocol_effect.png)
 
@@ -43,12 +43,18 @@ under a stricter protocol, and compares the models with a rule that has no learn
   period minus its last 30 rows, whose labels depend on test-period prices.
   Selected thresholds: 0.20 (XGBoost), 0.45 (Random Forest).
 - **Baselines.**
-  - *Extrapolation rule*: flag day t if extending the 5-day trend of the MA gap reaches zero within 30 days.
-    It has no learned parameters; on the SPY training set the best horizon for this rule is also 30 days.
+  - *Extrapolation rule*: flag day t if extending the 5-day trend of the MA gap reaches zero within 30 days
+    (τ_t = −g_t / ġ_t ≤ 30). The 5-day lookback was fixed by hand and the horizon equals the target horizon;
+    as a check, the best horizon on the SPY training set is also 30. No parameter is fitted to data.
+    For threshold-free metrics the rule is scored by 1 / (1 + τ_t), 0 when no crossover is predicted.
   - *Stratified random*: expected F1 of random predictions at the training positive rate.
 - **Transfer.** Models trained on SPY are applied unchanged to the other assets.
 - **Uncertainty.** 95% percentile bootstrap, B = 1000, using 30-day moving blocks to respect
-  label autocorrelation.
+  label autocorrelation. Rule-vs-model comparisons use a paired block bootstrap (same resampled
+  days for both methods, B = 2000) on the F1 difference.
+- **Event metrics.** Per crossover, the lead time of the first alert in the 30 days before it
+  (capped at 30 by the window); false-alarm days (alerts on negative days); false-alarm episodes
+  (runs of alerts with no positive day).
 
 ## Results
 
@@ -66,13 +72,25 @@ F1 on the positive class, test set, with 30-day block bootstrap 95% CI.
 - With the threshold selected on the SPY test set instead (the first protocol), the same models
   reach a mean F1 of 0.738 (XGBoost) and 0.720 (Random Forest) over SPY, DIA and QQQ
   ([results/naive_protocol.csv](results/naive_protocol.csv)).
+  Isolating the two changes ([results/protocol_decomposition.csv](results/protocol_decomposition.csv)):
+  moving threshold selection from the test set to the validation block lowers mean F1 by 0.077–0.103
+  (Random Forest) and 0.125–0.157 (XGBoost); the embargo changes it by −0.010/+0.016 (Random Forest)
+  and −0.018/+0.014 (XGBoost). Random Forest is the more reliable measure, since XGBoost moves by up
+  to 0.047 under 1e-6 price perturbations.
 - All methods are well above the random baseline. The extrapolation rule is ahead on SPY, QQQ and TLT,
-  Random Forest is ahead on DIA, and both models are ahead on GLD. The block-bootstrap intervals of the
-  three methods overlap on every asset.
+  Random Forest is ahead on DIA, and both models are ahead on GLD.
+- Paired block bootstrap on the F1 difference ([results/paired_differences.csv](results/paired_differences.csv)):
+  the rule is better than XGBoost on QQQ (+0.216 [0.053, 0.422]) and TLT (+0.166 [0.003, 0.341]) and
+  better than Random Forest on QQQ (+0.240 [0.073, 0.452]). The seven other intervals contain 0, and
+  none favors a model. The marginal intervals overlap on every asset, but that alone says little:
+  the methods are scored on the same crossovers, so their F1 values move together across resamples.
+- Average precision on SPY: 0.790 (XGBoost), 0.726 (Random Forest), 0.827 (rule score).
 - Block intervals are 2.6 to 3.7 times wider than intervals that resample individual days.
-- Every method raises at least one alert in the 30 days before each of the 35 test crossovers.
-  The differences come from false alarms: on SPY, XGBoost flags 291 days, Random Forest 230
-  and the extrapolation rule 139, for 150 positive days.
+- Every method raises at least one alert in the 30 days before each of the 35 test crossovers
+  ([results/event_metrics.csv](results/event_metrics.csv)). On SPY the median lead is 30 / 30 / 17 days
+  (XGBoost / Random Forest / rule) and the false-alarm days 158 / 107 / 35. A lead of 30 is the ceiling
+  of the window. The models alert earlier on SPY and DIA only. Pooled over the five assets they produce
+  4.0 (XGBoost) and 3.0 (Random Forest) times as many false-alarm days as the rule (884 and 658 against 221).
 - Walk-forward on SPY (expanding window, 4 usable folds, threshold re-selected in each training window):
   pooled F1 0.651 (XGBoost) and 0.638 (Random Forest). Fold F1 ranges from 0.387 to 0.792 and the
   selected threshold from 0.10 to 0.80.
@@ -105,7 +123,8 @@ The paper source is in [paper/GC_prediction_paper.tex](paper/GC_prediction_paper
 ## Limitations
 
 - **Few events.** Each test set holds 5 to 10 crossovers, so one missed or extra event moves F1 noticeably.
-  Model rankings per asset are not statistically supported.
+  The paired test separates the rule from a model on QQQ and TLT only, with ten comparisons and no
+  multiplicity correction.
 - **Strong simple baseline.** MA200 at t+30 shares 170 of its 200 days with past prices, so the
   target is largely predictable by construction. A linear extrapolation of the MA gap
   beats both models on three of five assets.
@@ -116,7 +135,10 @@ The paper source is in [paper/GC_prediction_paper.tex](paper/GC_prediction_paper
 - **Correlated evaluation assets.** DIA and QQQ are tested over the same dates as SPY and move with it,
   so they are not independent confirmations.
 - **Hyperparameter search.** XGBoost early stopping inside the search used the last cross-validation fold,
-  which is also scored by the search.
-- **Scale-dependent features.** ATR and MA velocity are in price units, which affects transfer across assets.
+  which is also scored by the search. The search used the SPY training set (to December 2018), which
+  overlaps walk-forward folds 2 and 3.
+- **Scale-dependent features.** ATR, MA velocity and MA_cross_momentum (whose numerator `MA50_accel` is in
+  dollars) are in price units, which affects transfer across assets.
+- **Capped lead times.** The alert window is 30 days, so lead times cannot exceed 30.
 - **Right censoring.** The last 30 days of each series cannot be labeled positive.
 - This is a classification study. It does not evaluate a trading strategy, costs or returns.

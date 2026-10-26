@@ -1,0 +1,16 @@
+Asset,Model,Crossings,Test_years,Median_lead,Min_lead,FA_days,FA_days_per_year,FA_episodes,FA_episodes_per_year
+SPY,XGB,5,6.04,30.0,21,158,26.2,11,1.82
+SPY,RFC,5,6.04,30.0,13,107,17.7,8,1.33
+SPY,Extrapolation,5,6.04,17.0,14,35,5.8,6,0.99
+DIA,XGB,6,6.04,24.5,7,185,30.7,19,3.15
+DIA,RFC,6,6.04,24.0,7,114,18.9,12,1.99
+DIA,Extrapolation,6,6.04,15.5,2,59,9.8,3,0.5
+QQQ,XGB,5,6.04,30.0,29,142,23.5,11,1.82
+QQQ,RFC,5,6.04,30.0,21,139,23.0,6,0.99
+QQQ,Extrapolation,5,6.04,30.0,19,19,3.1,2,0.33
+GLD,XGB,10,4.82,30.0,26,147,30.5,6,1.24
+GLD,RFC,10,4.82,30.0,25,112,23.2,2,0.41
+GLD,Extrapolation,10,4.82,30.0,13,55,11.4,4,0.83
+TLT,XGB,9,5.4,26.0,16,252,46.7,16,2.96
+TLT,RFC,9,5.4,26.0,12,186,34.5,8,1.48
+TLT,Extrapolation,9,5.4,27.0,22,53,9.8,5,0.93

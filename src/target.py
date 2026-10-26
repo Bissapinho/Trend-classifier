@@ -36,6 +36,9 @@ def return_target(close: pd.Series, period=60, goalreturn=0.05):
 
 
 def noisy_regime(close: pd.Series, sigma, rng, short=50, long=200):
-    """Regime recomputed after adding N(0, (sigma * std(close))^2) noise to prices."""
-    noisy = close + rng.normal(0, sigma * close.std(), len(close))
+    """Regime recomputed after multiplying prices by (1 + e), e ~ N(0, sigma^2).
+
+    The noise is relative to each day's price, so it uses no information from other dates.
+    """
+    noisy = close * (1 + rng.normal(0, sigma, len(close)))
     return regime(noisy, short, long)
