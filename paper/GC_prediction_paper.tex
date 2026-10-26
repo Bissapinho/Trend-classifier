@@ -10,12 +10,18 @@
 \usepackage{graphicx}
 \usepackage{caption}
 \usepackage[round]{natbib}
+\usepackage{xurl}
 \usepackage[hidelinks]{hyperref}
 
 \graphicspath{{../figures/}}
 
+% indicator function (amssymb's \mathbb has no glyph for 1)
+\newcommand{\ind}{\mathbf{1}}
+% two-line table header cell
+\newcommand{\hd}[1]{\begin{tabular}[b]{@{}c@{}}#1\end{tabular}}
+
 \title{Predicting Golden Cross Transitions in ETFs:\\What Survives a Careful Evaluation}
-\author{Alexandre Galle\\Independent Researcher\\\texttt{alexandre.galle@student-cs.fr}}
+\author{Alexandre Galle\\MSc student, CentraleSup\'elec -- ESSEC\\\texttt{alexandre.galle@student-cs.fr}}
 \date{October 2026}
 
 \begin{document}
@@ -51,7 +57,7 @@ Moving-average crossover rules are among the most widely used trend indicators. 
 studied as reactive signals: a position changes once the crossover has occurred
 \citep{avramov2018}. The 50/200-day pair, known as the Golden Cross (upward) and Death Cross
 (downward), is the most common long-horizon variant, and the ratio between these two averages
-carries information about future returns \citep{bhootra2023}. A natural question is whether the
+carries information about future returns \citep{bhootra2024}. A natural question is whether the
 crossover itself can be anticipated.
 
 This paper started as an attempt to answer that question with gradient boosting and random
@@ -61,8 +67,6 @@ reject. The paper therefore reports the full path from the first estimate to a c
 
 Our contributions are:
 \begin{enumerate}
-  \item a reproducible pipeline for predicting MA50/MA200 crossovers 30 days ahead, trained on
-        SPY and transferred to four other ETFs;
   \item a decomposition of how the evaluation protocol inflates performance, separating threshold
         selection on the test set from the train/test embargo, and a comparison of
         observation-level and block bootstrap intervals;
@@ -80,7 +84,7 @@ Section~\ref{sec:results} reports results and Section~\ref{sec:discussion} discu
 \section{Related Work}\label{sec:related}
 
 The distance or ratio between short- and long-term moving averages captures changes in price
-regimes and predicts future returns \citep{avramov2018,bhootra2023}. Gradient boosting
+regimes and predicts future returns \citep{avramov2018,bhootra2024}. Gradient boosting
 \citep{chen2016} and other tree ensembles perform competitively in stock direction prediction
 \citep{ampomah2020}. Transitions between bull and bear phases tend to coincide with elevated
 volatility and trading activity \citep{catao2010}, which motivates part of our feature set.
@@ -111,7 +115,7 @@ Section~\ref{sec:sensitivity} measures how much these differences matter.
 \centering
 \begin{tabular}{lrrlrr}
 \toprule
-Asset & Train rows & Test rows & Test period & Positive rate (train / test) & Crossovers in test \\
+Asset & \hd{Train\\rows} & \hd{Test\\rows} & Test period & \hd{Positive rate\\(train / test)} & \hd{Crossovers\\in test} \\
 \midrule
 SPY & 4{,}563 & 1{,}521 & 2018-12-13 -- 2024-12-30 & 11.6\% / 9.9\% & 5 \\
 DIA & 4{,}563 & 1{,}521 & 2018-12-13 -- 2024-12-30 & 15.1\% / 10.3\% & 6 \\
@@ -129,7 +133,7 @@ labeled 1. Crossovers are counted as events, not rows.}
 
 We first labeled day $t$ as bullish when the return over the next $h$ days exceeded a threshold $r$:
 \begin{equation}
-  y_t = \mathbb{1}\left[\frac{P_{t+h}-P_t}{P_t} > r\right],
+  y_t = \ind\left[\frac{P_{t+h}-P_t}{P_t} > r\right],
 \end{equation}
 over the grid $h\in\{15,30,60,90\}$ days and $r\in\{3\%,5\%,7\%,10\%\}$. The configuration
 $h=60$, $r=5\%$ labels 36.7\% of days as bullish but switches 440 times between 2000 and 2024,
@@ -141,7 +145,7 @@ We therefore abandoned this target.
 
 The regime indicator is
 \begin{equation}
-  s_t = \mathbb{1}\left[\mathrm{MA}_{50}(t) > \mathrm{MA}_{200}(t)\right],
+  s_t = \ind\left[\mathrm{MA}_{50}(t) > \mathrm{MA}_{200}(t)\right],
 \end{equation}
 where $\mathrm{MA}_k(t)$ is the $k$-day simple moving average of the closing price. On SPY it
 changes 24 times over the period where both averages are defined, labels 71.9\% of days as
@@ -149,7 +153,7 @@ bullish, and covers 89.5\% of days in 2013--2017 (Figure~\ref{fig:target_gc}).
 
 The classification target flags the 30 days that precede a regime change:
 \begin{equation}
-  y_t = \mathbb{1}\left[\exists\, i\in\{1,\dots,30\} : s_{t+i} \neq s_t\right].
+  y_t = \ind\left[\exists\, i\in\{1,\dots,30\} : s_{t+i} \neq s_t\right].
   \label{eq:target}
 \end{equation}
 Positive days form contiguous blocks of 30, one block per crossover (two crossovers less than
@@ -297,7 +301,7 @@ alert days that contains no positive day.
 \paragraph{Extrapolation rule.} Let $\dot g_t = (g_t - g_{t-5})/5$. If the gap kept its recent
 trend, it would reach zero after $\tau_t = -g_t/\dot g_t$ days. The rule predicts
 \begin{equation}
-  \hat y_t = \mathbb{1}\left[0 < \tau_t \le 30\right].
+  \hat y_t = \ind\left[0 < \tau_t \le 30\right].
 \end{equation}
 The lookback of 5 days was fixed by hand and not tuned. The horizon is set equal to the target
 horizon; as a check, a search over $\{5,10,\dots,90\}$ on the SPY training set also selects 30.
@@ -351,6 +355,14 @@ Mean SPY/DIA/QQQ & 0.738 & 0.720 \\
 selected on the SPY test set.}
 \label{tab:naive}
 \end{table}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.6\textwidth]{protocol_effect.pdf}
+\caption{Mean F1 over SPY, DIA and QQQ under the naive and corrected protocols, compared with the
+extrapolation rule.}
+\label{fig:protocol}
+\end{figure}
 
 \subsection{Corrected protocol}
 
@@ -436,6 +448,14 @@ marginal intervals do not show that two methods perform alike: both are scored o
 crossovers, so their F1 values move together across resamples, and the interval of their
 difference can exclude zero while the marginal intervals overlap.
 
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{f1_block_ci.pdf}
+\caption{Test F1 per asset under the corrected protocol, with 30-day block bootstrap 95\%
+intervals. Black marks: expected F1 of stratified random predictions.}
+\label{fig:f1ci}
+\end{figure}
+
 Table~\ref{tab:paired} reports the paired comparison. The rule is better than both models on QQQ
 ($+0.216$ $[0.053, 0.422]$ against XGBoost, $+0.240$ $[0.073, 0.452]$ against Random Forest) and
 better than XGBoost on TLT ($+0.166$ $[0.003, 0.341]$). The seven other intervals contain zero,
@@ -487,7 +507,7 @@ many; per asset the ratio ranges from 1.9 to 7.5. Counted as episodes, the total
 \small
 \begin{tabular}{lrccc}
 \toprule
-Asset & Crossovers & Median lead (days) & False-alarm days & False-alarm episodes / year \\
+Asset & Crossovers & \hd{Median lead\\(days)} & \hd{False-alarm\\days} & \hd{False-alarm\\episodes / year} \\
 \midrule
 SPY & 5 & 30 / 30 / 17 & 158 / 107 / 35 & 1.82 / 1.33 / 0.99 \\
 DIA & 6 & 24.5 / 24 / 15.5 & 185 / 114 / 59 & 3.15 / 1.99 / 0.50 \\
@@ -519,9 +539,10 @@ the selected threshold from 0.10 to 0.80. Fold 5 contains a single crossover.
 
 \begin{table}[h]
 \centering
+\small
 \begin{tabular}{lrrrcc}
 \toprule
-Fold & Train size & Positive days & Crossovers & XGBoost $\tau$ / F1 & Random Forest $\tau$ / F1 \\
+Fold & \hd{Train\\size} & \hd{Positive\\days} & Crossovers & \hd{XGBoost\\$\tau$ / F1} & \hd{Random Forest\\$\tau$ / F1} \\
 \midrule
 2 (2015-04 -- 2017-09) & 3{,}650 & 115 & 4 & 0.10 / 0.792 & 0.10 / 0.691 \\
 3 (2017-09 -- 2020-02) & 4{,}258 & 68 & 2 & 0.15 / 0.562 & 0.40 / 0.642 \\
@@ -612,10 +633,10 @@ Ampomah, E., Qin, Z., and Nyame, G. (2020).
 Avramov, D., Kaplanski, G., and Subrahmanyam, A. (2018).
 \newblock Stock return predictability: New evidence from moving averages of prices and firm
   fundamentals.
-\newblock \emph{SSRN Working Paper}.
+\newblock \emph{SSRN Working Paper} 3111334.
 
-\bibitem[Bhootra(2023)]{bhootra2023}
-Bhootra, A. (2023).
+\bibitem[Bhootra(2024)]{bhootra2024}
+Bhootra, A. (2024).
 \newblock Predicting returns using moving averages: the role of investor inattention.
 \newblock \emph{Managerial Finance}, 50(6):1066--1088. doi:10.1108/MF-04-2023-0257.
 
@@ -681,21 +702,6 @@ bullish days (left) and share of labels that change (right), averaged over 50 dr
 \label{fig:target_gc}
 \end{figure}
 
-\begin{figure}[h]
-\centering
-\includegraphics[width=0.6\textwidth]{protocol_effect.pdf}
-\caption{Mean F1 over SPY, DIA and QQQ under the naive and corrected protocols, compared with the
-extrapolation rule.}
-\label{fig:protocol}
-\end{figure}
-
-\begin{figure}[h]
-\centering
-\includegraphics[width=\textwidth]{f1_block_ci.pdf}
-\caption{Test F1 per asset under the corrected protocol, with 30-day block bootstrap 95\%
-intervals. Black marks: expected F1 of stratified random predictions.}
-\label{fig:f1ci}
-\end{figure}
 
 \begin{figure}[h]
 \centering
