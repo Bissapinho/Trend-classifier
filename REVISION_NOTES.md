@@ -52,7 +52,7 @@ Rerunning them leaves every CSV and PNG unchanged.
 
 ## Left to do
 
-- [ ] **13. Compile the paper with pdflatex and commit `paper/GC_prediction_paper.pdf`.** No LaTeX distribution was available in this environment. The README already links to that path, so the link is dead until the PDF is committed.
+- [x] **13. Compile the paper with pdflatex and commit `paper/GC_prediction_paper.pdf`.** Compiled with pdfTeX (TeX Live 2026) and committed.
 - [ ] After compiling, check the PDF: no "⊮" glyph, no table or URL past the right margin (the walk-forward, data, event and main results tables are the ones to watch).
 - [ ] Optional: cite the published version of Avramov et al. (*Review of Financial Economics*, 2021, "Moving Average Distance as a Predictor of Equity Returns") instead of the 2018 working paper.
 - [ ] Optional: rename the repository, for example `golden-cross-evaluation`.
